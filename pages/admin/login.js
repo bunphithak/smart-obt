@@ -37,7 +37,7 @@ export default function AdminLogin() {
           loggedIn: true
         }));
 
-        router.push('/');
+        window.location.href = '/';
       } else {
         setError('กรุณากรอกชื่อผู้ใช้และรหัสผ่าน');
       }
@@ -55,7 +55,7 @@ export default function AdminLogin() {
       role: 'admin',
       loggedIn: true
     }));
-    router.push('/');
+    window.location.href = '/';
   };
 
   return (

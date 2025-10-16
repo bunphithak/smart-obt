@@ -69,13 +69,29 @@ export default function TechnicianDashboard() {
         const asset = data.data[0];
         
         if (asset.latitude && asset.longitude) {
-          // Use exact coordinates if available
-          const mapUrl = `https://www.google.com/maps?q=${asset.latitude},${asset.longitude}`;
-          window.open(mapUrl, '_blank');
+          // Use exact coordinates - works better on mobile
+          // Format: https://maps.google.com/maps?q=lat,lng
+          const mapUrl = `https://maps.google.com/maps?q=${asset.latitude},${asset.longitude}`;
+          
+          // Create a temporary link and click it (works better on mobile than window.open)
+          const link = document.createElement('a');
+          link.href = mapUrl;
+          link.target = '_blank';
+          link.rel = 'noopener noreferrer';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
         } else if (asset.locationName) {
           // Use location name if coordinates not available
-          const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(asset.locationName)}`;
-          window.open(mapUrl, '_blank');
+          const mapUrl = `https://maps.google.com/maps/search/?api=1&query=${encodeURIComponent(asset.locationName)}`;
+          
+          const link = document.createElement('a');
+          link.href = mapUrl;
+          link.target = '_blank';
+          link.rel = 'noopener noreferrer';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
         } else {
           showAlert('ไม่พบตำแหน่ง', 'ไม่มีข้อมูลตำแหน่งทรัพย์สินสำหรับงานนี้', 'warning');
         }
