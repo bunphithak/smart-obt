@@ -1,0 +1,104 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* TailAdmin Custom Styles */
+@layer base {
+  :root {
+    --background: #ffffff;
+    --foreground: #1f2937;
+  }
+
+  body {
+    @apply bg-white text-gray-900 dark:bg-gray-900 dark:text-white/90;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
+    line-height: 1.6;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  a {
+    @apply no-underline;
+    color: inherit;
+  }
+}
+
+@layer components {
+  /* Custom Scrollbar - TailAdmin Style */
+  ::-webkit-scrollbar {
+    @apply w-2 h-2;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-gray-100 dark:bg-gray-800;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-gray-300 dark:bg-gray-700 rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-gray-400 dark:bg-gray-600;
+  }
+
+  /* Loading Animation */
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+
+  .loading {
+    animation: spin 1s linear infinite;
+  }
+
+  /* Table Styles - TailAdmin */
+  table thead {
+    @apply bg-gray-50 dark:bg-gray-800/50;
+  }
+
+  table th {
+    @apply text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider;
+  }
+
+  table td {
+    @apply text-sm text-gray-700 dark:text-gray-300;
+  }
+
+  table tbody tr {
+    @apply border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors;
+  }
+}
+
+@layer utilities {
+  /* Text Sizes - TailAdmin */
+  .text-title-sm {
+    @apply text-2xl;
+  }
+
+  .text-title-md {
+    @apply text-3xl;
+  }
+
+  .text-title-lg {
+    @apply text-4xl;
+  }
+
+  /* Z-Index */
+  .z-99999 {
+    z-index: 99999;
+  }
+}
+
+/* Print Styles */
+@media print {
+  body {
+    @apply bg-white;
+  }
+  
+  nav, aside, button {
+    display: none !important;
+  }
+}
+

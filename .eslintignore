@@ -1,0 +1,5 @@
+TailAdmin-1.0.0/
+node_modules/
+.next/
+out/
+dist/

@@ -1,0 +1,145 @@
+import { useState, useEffect } from 'react';
+
+export default function ReportForm({ report, assets, onSubmit, onCancel }) {
+  const [formData, setFormData] = useState({
+    assetId: '',
+    title: '',
+    description: '',
+    priority: 'ปานกลาง',
+    reportedBy: ''
+  });
+
+  useEffect(() => {
+    if (report) {
+      setFormData(report);
+    }
+  }, [report]);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSubmit(formData);
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          ทรัพย์สิน <span className="text-red-500">*</span>
+        </label>
+        <select
+          name="assetId"
+          value={formData.assetId}
+          onChange={handleChange}
+          required
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="">เลือกทรัพย์สิน</option>
+          {assets && assets.map(asset => (
+            <option key={asset.id} value={asset.id}>
+              {asset.code} - {asset.name}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          หัวข้อปัญหา <span className="text-red-500">*</span>
+        </label>
+        <input
+          type="text"
+          name="title"
+          value={formData.title}
+          onChange={handleChange}
+          required
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          placeholder="เช่น ขาโต๊ะหัก"
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          รายละเอียดปัญหา <span className="text-red-500">*</span>
+        </label>
+        <textarea
+          name="description"
+          value={formData.description}
+          onChange={handleChange}
+          required
+          rows="4"
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          placeholder="อธิบายปัญหาโดยละเอียด..."
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          ระดับความสำคัญ
+        </label>
+        <select
+          name="priority"
+          value={formData.priority}
+          onChange={handleChange}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="ต่ำ">ต่ำ</option>
+          <option value="ปานกลาง">ปานกลาง</option>
+          <option value="สูง">สูง</option>
+          <option value="ฉุกเฉิน">ฉุกเฉิน</option>
+        </select>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          ผู้แจ้ง
+        </label>
+        <input
+          type="text"
+          name="reportedBy"
+          value={formData.reportedBy}
+          onChange={handleChange}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          placeholder="ชื่อผู้แจ้ง"
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          แนบรูปภาพ
+        </label>
+        <input
+          type="file"
+          accept="image/*"
+          multiple
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        <p className="text-xs text-gray-500 mt-1">รองรับไฟล์ภาพ JPG, PNG (สูงสุด 5 ไฟล์)</p>
+      </div>
+
+      <div className="flex space-x-3 pt-4">
+        <button
+          type="submit"
+          className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          {report ? 'บันทึกการแก้ไข' : 'แจ้งปัญหา'}
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="flex-1 bg-gray-200 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400"
+        >
+          ยกเลิก
+        </button>
+      </div>
+    </form>
+  );
+}
+
