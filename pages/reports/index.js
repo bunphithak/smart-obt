@@ -120,8 +120,8 @@ export default function ReportsPage() {
         setError(null);
       }
       setLoading(false);
-    } catch (error) {
-      console.error('Error fetching reports:', error);
+    } catch (fetchError) {
+      console.error('Error fetching reports:', fetchError);
       // Show fallback data instead of error
       const fallbackReports = [
         {

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 
@@ -27,14 +27,7 @@ export default function PublicReportForm() {
     setIsClient(true);
   }, []);
 
-  useEffect(() => {
-    if (isClient && assetCode) {
-      fetchAssetInfo();
-      getLocation();
-    }
-  }, [isClient, assetCode]);
-
-  const fetchAssetInfo = async () => {
+  const fetchAssetInfo = useCallback(async () => {
     try {
       const res = await fetch(`/api/assets?code=${assetCode}`);
       const data = await res.json();
@@ -42,11 +35,18 @@ export default function PublicReportForm() {
         setAsset(data.data[0]);
       }
       setLoading(false);
-    } catch (error) {
-      console.error('Error fetching asset:', error);
+    } catch (fetchError) {
+      console.error('Error fetching asset:', fetchError);
       setLoading(false);
     }
-  };
+  }, [assetCode]);
+
+  useEffect(() => {
+    if (isClient && assetCode) {
+      fetchAssetInfo();
+      getLocation();
+    }
+  }, [isClient, assetCode, fetchAssetInfo]);
 
   const getLocation = () => {
     if (typeof window !== 'undefined' && navigator.geolocation) {
@@ -133,7 +133,7 @@ export default function PublicReportForm() {
       }
 
       // Append images
-      formData.images.forEach((imageObj, index) => {
+      formData.images.forEach((imageObj) => {
         formDataToSend.append(`images`, imageObj.file);
       });
 

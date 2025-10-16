@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 
@@ -28,6 +28,18 @@ export default function GeneralReportForm() {
     setIsClient(true);
   }, []);
 
+  const fetchVillageName = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/villages?id=${villageId}`);
+      const data = await res.json();
+      if (data.success && data.data.length > 0) {
+        setVillageName(data.data[0].name);
+      }
+    } catch (fetchError) {
+      console.error('Error fetching village:', fetchError);
+    }
+  }, [villageId]);
+
   useEffect(() => {
     if (isClient) {
       getLocation();
@@ -36,19 +48,7 @@ export default function GeneralReportForm() {
       }
       setLoading(false);
     }
-  }, [isClient, villageId]);
-
-  const fetchVillageName = async () => {
-    try {
-      const res = await fetch(`/api/villages?id=${villageId}`);
-      const data = await res.json();
-      if (data.success && data.data.length > 0) {
-        setVillageName(data.data[0].name);
-      }
-    } catch (error) {
-      console.error('Error fetching village:', error);
-    }
-  };
+  }, [isClient, villageId, fetchVillageName]);
 
   const getLocation = () => {
     if (typeof window !== 'undefined' && navigator.geolocation) {
@@ -140,7 +140,7 @@ export default function GeneralReportForm() {
       }
 
       // Append images
-      formData.images.forEach((imageObj, index) => {
+      formData.images.forEach((imageObj) => {
         formDataToSend.append(`images`, imageObj.file);
       });
 

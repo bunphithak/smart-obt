@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
+import Image from 'next/image';
 
 export default function ReportDetailPage() {
   const router = useRouter();
@@ -22,13 +23,7 @@ export default function ReportDetailPage() {
     setIsClient(true);
   }, []);
 
-  useEffect(() => {
-    if (isClient && id) {
-      fetchReportDetail();
-    }
-  }, [isClient, id]);
-
-  const fetchReportDetail = async () => {
+  const fetchReportDetail = useCallback(async () => {
     try {
       const res = await fetch(`/api/reports?id=${id}`);
       const data = await res.json();
@@ -45,7 +40,13 @@ export default function ReportDetailPage() {
       console.error('Error fetching report:', error);
       setLoading(false);
     }
-  };
+  }, [id]);
+
+  useEffect(() => {
+    if (isClient && id) {
+      fetchReportDetail();
+    }
+  }, [isClient, id, fetchReportDetail]);
 
   const showAlert = (type, title, message) => {
     setAlertData({ type, title, message });
@@ -234,10 +235,12 @@ export default function ReportDetailPage() {
                     </label>
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                       {report.images.map((image, index) => (
-                        <img
+                        <Image
                           key={index}
                           src={image}
                           alt={`รูปภาพ ${index + 1}`}
+                          width={300}
+                          height={200}
                           className="w-full h-32 object-cover rounded-lg border border-gray-200"
                         />
                       ))}

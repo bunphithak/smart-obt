@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
+import Image from 'next/image';
 
 // Disable static generation for this page
 export async function getServerSideProps() {
@@ -27,8 +28,8 @@ export default function TrackStatus() {
         setReport(data.data);
       }
       setLoading(false);
-    } catch (error) {
-      console.error('Error:', error);
+    } catch (fetchError) {
+      console.error('Error:', fetchError);
       setLoading(false);
     }
   }, [ticketId]);
@@ -251,10 +252,12 @@ export default function TrackStatus() {
               <h3 className="text-lg font-semibold mb-4">รูปภาพก่อนซ่อม</h3>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 {report.images.map((img, idx) => (
-                  <img
+                  <Image
                     key={idx}
                     src={img}
                     alt={`Before ${idx + 1}`}
+                    width={300}
+                    height={200}
                     className="w-full h-32 object-cover rounded-lg"
                   />
                 ))}
@@ -268,10 +271,12 @@ export default function TrackStatus() {
               <h3 className="text-lg font-semibold mb-4 text-green-800">รูปภาพหลังซ่อม</h3>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 {report.repair.afterImages.map((img, idx) => (
-                  <img
+                  <Image
                     key={idx}
                     src={img}
                     alt={`After ${idx + 1}`}
+                    width={300}
+                    height={200}
                     className="w-full h-32 object-cover rounded-lg border-2 border-green-200"
                   />
                 ))}

@@ -46,6 +46,7 @@ export default function UserForm({ user, villages, onSubmit, onCancel }) {
       }
     }
 
+    // Remove confirmPassword from submit data
     const { confirmPassword, ...submitData } = formData;
     
     // Don't send empty password on update

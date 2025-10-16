@@ -20,8 +20,8 @@ export default function RepairsPage() {
         setRepairs(data.data);
       }
       setLoading(false);
-    } catch (error) {
-      console.error('Error:', error);
+    } catch (fetchError) {
+      console.error('Error:', fetchError);
       setLoading(false);
     }
   };

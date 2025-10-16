@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 
@@ -6,8 +6,7 @@ export default function PublicHome() {
   const router = useRouter();
   const [assetCode, setAssetCode] = useState('');
 
-  useEffect(() => {
-    // Get asset code from URL query parameter
+  const handleAutoRedirect = useCallback(() => {
     if (router.query.code) {
       setAssetCode(router.query.code);
       // Auto-submit if code is provided
@@ -15,7 +14,12 @@ export default function PublicHome() {
         router.push(`/report/${router.query.code}`);
       }, 500);
     }
-  }, [router.query.code]);
+  }, [router.query.code, router]);
+
+  useEffect(() => {
+    // Get asset code from URL query parameter
+    handleAutoRedirect();
+  }, [handleAutoRedirect]);
 
   const handleReportProblem = (e) => {
     e.preventDefault();

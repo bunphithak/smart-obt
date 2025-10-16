@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 
@@ -28,17 +28,6 @@ export default function NewRepairPage() {
     setIsClient(true);
   }, []);
 
-  useEffect(() => {
-    if (isClient) {
-      fetchUsers();
-      if (reportId) {
-        fetchReportDetail();
-      } else {
-        setLoading(false);
-      }
-    }
-  }, [isClient, reportId]);
-
   const fetchUsers = async () => {
     try {
       const res = await fetch('/api/users');
@@ -51,7 +40,7 @@ export default function NewRepairPage() {
     }
   };
 
-  const fetchReportDetail = async () => {
+  const fetchReportDetail = useCallback(async () => {
     try {
       const res = await fetch(`/api/reports?id=${reportId}`);
       const data = await res.json();
@@ -67,11 +56,22 @@ export default function NewRepairPage() {
         });
       }
       setLoading(false);
-    } catch (error) {
-      console.error('Error fetching report:', error);
+    } catch (fetchError) {
+      console.error('Error fetching report:', fetchError);
       setLoading(false);
     }
-  };
+  }, [reportId, formData]);
+
+  useEffect(() => {
+    if (isClient) {
+      fetchUsers();
+      if (reportId) {
+        fetchReportDetail();
+      } else {
+        setLoading(false);
+      }
+    }
+  }, [isClient, reportId, fetchReportDetail]);
 
   const showAlert = (type, title, message) => {
     setAlertData({ type, title, message });
@@ -132,8 +132,8 @@ export default function NewRepairPage() {
       } else {
         showAlert('error', 'เกิดข้อผิดพลาด', data.error);
       }
-    } catch (error) {
-      console.error('Error creating repair:', error);
+    } catch (createError) {
+      console.error('Error creating repair:', createError);
       showAlert('error', 'เกิดข้อผิดพลาด', 'เกิดข้อผิดพลาดในการสร้างงานซ่อม กรุณาลองใหม่');
     } finally {
       setSubmitting(false);
@@ -400,7 +400,7 @@ export default function NewRepairPage() {
 
               <div className="rounded-2xl border border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-900/20 p-4">
                 <p className="text-sm text-blue-800 dark:text-blue-200">
-                  💡 <strong>หมายเหตุ:</strong> เมื่อสร้างงานซ่อมเสร็จ สถานะของรายงานจะถูกอัปเดตเป็น "กำลังดำเนินการ" โดยอัตโนมัติ
+                  💡 <strong>หมายเหตุ:</strong> เมื่อสร้างงานซ่อมเสร็จ สถานะของรายงานจะถูกอัปเดตเป็น &ldquo;กำลังดำเนินการ&rdquo; โดยอัตโนมัติ
                 </p>
               </div>
             </div>

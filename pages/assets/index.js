@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import AssetForm from '../../components/AssetForm';
-import dynamic from 'next/dynamic';
+import NextImage from 'next/image';
+// import dynamic from 'next/dynamic';
 
 // Disable SSR for this page to avoid QR code library issues
 export default function AssetsPage() {
@@ -18,7 +19,7 @@ export default function AssetsPage() {
   const [showGeneralQRModal, setShowGeneralQRModal] = useState(false);
   const [generalQRData, setGeneralQRData] = useState(null);
   const [showVillageSelectModal, setShowVillageSelectModal] = useState(false);
-  const [selectedVillage, setSelectedVillage] = useState(null);
+  // const [selectedVillage, setSelectedVillage] = useState(null);
 
   useEffect(() => {
     // Only fetch data on client side
@@ -48,8 +49,8 @@ export default function AssetsPage() {
       if (villagesData.success) setVillages(villagesData.data);
       
       setLoading(false);
-    } catch (error) {
-      console.error('Error fetching data:', error);
+    } catch (fetchError) {
+      console.error('Error fetching data:', fetchError);
       setLoading(false);
     }
   };
@@ -68,7 +69,7 @@ export default function AssetsPage() {
   };
 
   const handleVillageSelect = (village) => {
-    setSelectedVillage(village);
+    // setSelectedVillage(village);
     setShowVillageSelectModal(false);
     generateGeneralQRCode(village);
   };
@@ -1062,9 +1063,11 @@ export default function AssetsPage() {
                 
                 {qrCodeData ? (
                   <div className="bg-white p-4 rounded-lg border-2 border-gray-200 inline-block">
-                    <img 
+                    <NextImage 
                       src={qrCodeData} 
                       alt="QR Code" 
+                      width={256}
+                      height={256}
                       className="w-64 h-64 mx-auto"
                       onLoad={() => console.log('QR Code image loaded successfully')}
                       onError={(e) => console.error('QR Code image failed to load:', e)}
@@ -1243,9 +1246,11 @@ export default function AssetsPage() {
               {/* QR Code Display */}
               <div className="text-center mb-6">
                 <div className="bg-white border border-gray-200 rounded-lg p-4 inline-block">
-                  <img
+                  <NextImage
                     src={generalQRData.imageData}
                     alt="General QR Code"
+                    width={256}
+                    height={320}
                     className="w-64 h-80 object-contain"
                   />
                 </div>
