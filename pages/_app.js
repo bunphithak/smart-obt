@@ -1,25 +1,60 @@
 import '../styles/globals.css';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 
 function MyApp({ Component, pageProps }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [isClient, setIsClient] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [showUserMenu, setShowUserMenu] = useState(false);
   const router = useRouter();
 
   // Define public pages that should not show admin layout
   // /report/[assetCode] = public page for citizens to report issues
   // /reports = admin page for viewing all reports
+  // /technician = public page for technicians
+  // /admin/login = login page (no admin layout)
   const isPublicPage = router.pathname === '/track' || 
                       router.pathname === '/public' || 
+                      router.pathname === '/admin/login' ||
                       router.pathname.startsWith('/track/') ||
                       router.pathname.startsWith('/public/') ||
-                      router.pathname.startsWith('/report/');
+                      router.pathname.startsWith('/report/') ||
+                      router.pathname.startsWith('/technician/');
   
+  useEffect(() => {
+    setIsClient(true);
+    
+    // Check authentication for admin pages
+    if (typeof window !== 'undefined') {
+      const userStr = localStorage.getItem('adminUser');
+      if (userStr) {
+        setCurrentUser(JSON.parse(userStr));
+      }
+    }
+  }, []);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showUserMenu && !event.target.closest('.user-menu')) {
+        setShowUserMenu(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showUserMenu]);
+
   // Debug logging
-  console.log('Current pathname:', router.pathname);
-  console.log('Is public page:', isPublicPage);
-  console.log('Page type:', isPublicPage ? 'PUBLIC' : 'ADMIN');
+  if (isClient) {
+    console.log('Current pathname:', router.pathname);
+    console.log('Is public page:', isPublicPage);
+    console.log('Page type:', isPublicPage ? 'PUBLIC' : 'ADMIN');
+  }
 
   const menuItems = [
     { 
@@ -70,6 +105,15 @@ function MyApp({ Component, pageProps }) {
       )
     },
     { 
+      name: 'จัดการหมวดหมู่', 
+      path: '/categories',
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+        </svg>
+      )
+    },
+    { 
       name: 'จัดการผู้ใช้', 
       path: '/users',
       icon: (
@@ -86,6 +130,25 @@ function MyApp({ Component, pageProps }) {
   if (isPublicPage) {
     return <Component {...pageProps} />;
   }
+
+  // Prevent hydration mismatch by not rendering anything until client-side
+  if (!isClient) {
+    return null;
+  }
+
+  // Check authentication for admin pages (except login page)
+  if (!isPublicPage && router.pathname !== '/admin/login' && !currentUser) {
+    if (isClient) {
+      router.push('/admin/login');
+    }
+    return null;
+  }
+
+  const handleLogout = () => {
+    localStorage.removeItem('adminUser');
+    setShowUserMenu(false);
+    router.push('/admin/login');
+  };
 
   // Admin layout for all other pages
   return (
@@ -124,15 +187,47 @@ function MyApp({ Component, pageProps }) {
               <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full"></span>
             </button>
 
-            {/* User Menu */}
-            <div className="flex items-center gap-3 px-3 py-2 border border-gray-200 rounded-lg dark:border-gray-800 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center font-bold text-white text-sm">
-                A
-              </div>
-              <div className="hidden sm:block">
-                <p className="text-sm font-medium text-gray-800 dark:text-white">ผู้ดูแลระบบ</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Admin</p>
-              </div>
+            {/* User Menu with Dropdown */}
+            <div className="relative user-menu">
+              <button
+                onClick={() => setShowUserMenu(!showUserMenu)}
+                className="flex items-center gap-3 px-3 py-2 border border-gray-200 rounded-lg dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+              >
+                <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center font-bold text-white text-sm">
+                  {currentUser?.name?.charAt(0) || 'A'}
+                </div>
+                <div className="hidden sm:block">
+                  <p className="text-sm font-medium text-gray-800 dark:text-white">{currentUser?.name || 'ผู้ดูแลระบบ'}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{currentUser?.role || 'Admin'}</p>
+                </div>
+                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {/* Dropdown Menu */}
+              {showUserMenu && (
+                <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50">
+                  <div className="py-2">
+                    {/* User Info */}
+                    <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">{currentUser?.name || 'ผู้ดูแลระบบ'}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{currentUser?.role || 'Admin'}</p>
+                    </div>
+                    
+                    {/* Menu Items */}
+                    <button
+                      onClick={handleLogout}
+                      className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                      </svg>
+                      ออกจากระบบ
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -141,8 +236,8 @@ function MyApp({ Component, pageProps }) {
       <div className="flex">
         {/* Sidebar - TailAdmin Style */}
         <aside className={`${sidebarOpen ? 'w-[290px]' : 'w-0'} transition-all duration-300 ease-in-out overflow-hidden`}>
-          <div className="h-[calc(100vh-4rem)] bg-white border-r border-gray-200 dark:border-gray-800 dark:bg-gray-900 sticky top-[4rem] overflow-y-auto">
-            <nav className="p-4 space-y-1">
+          <div className={`h-[calc(100vh-4rem)] bg-white border-r border-gray-200 dark:border-gray-800 dark:bg-gray-900 fixed top-[4rem] left-0 overflow-y-auto z-40 transition-all duration-300 ease-in-out ${sidebarOpen ? 'w-[290px]' : 'w-0'}`}>
+            <nav className="p-4 pt-8 space-y-1">
               {menuItems.map((item) => (
                 <Link
                   key={item.path}
@@ -160,21 +255,6 @@ function MyApp({ Component, pageProps }) {
                 </Link>
               ))}
 
-              {/* Quick Links Section */}
-              <div className="pt-6 mt-6 border-t border-gray-200 dark:border-gray-800">
-                <p className="px-4 text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">
-                  Quick Links
-                </p>
-                <Link
-                  href="/track"
-                  className="flex items-center gap-3 px-4 py-2.5 rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200 group"
-                >
-                  <svg className="w-5 h-5 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                  <span className="font-medium text-sm">ติดตามสถานะ</span>
-                </Link>
-              </div>
             </nav>
           </div>
         </aside>

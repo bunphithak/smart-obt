@@ -27,7 +27,7 @@ export default function RepairsPage() {
   };
 
   const handleEdit = (repair) => {
-    router.push(`/repairs/${repair.id}`);
+    router.push(`/repairs/${repair.id}?edit=true`);
   };
 
   const handleDelete = async (repair) => {
@@ -49,7 +49,7 @@ export default function RepairsPage() {
   };
 
   const handleViewDetails = (repair) => {
-    router.push(`/repairs/${repair.id}`);
+    router.push(`/repairs/${repair.id}`); // View only mode
   };
 
   const filteredRepairs = repairs.filter(repair => {

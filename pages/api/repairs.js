@@ -6,7 +6,7 @@ export default async function handler(req, res) {
   switch (method) {
     case 'GET':
       try {
-        const { reportId, status, assignedTo } = req.query;
+        const { id, reportId, status, assignedTo } = req.query;
         
         // TODO: Implement database query
         const mockRepairs = [
@@ -20,14 +20,59 @@ export default async function handler(req, res) {
             assignedTo: 'ช่าง A',
             estimatedCost: 500,
             actualCost: null,
+            dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 7 days from now
             startDate: new Date().toISOString(),
             completedDate: null,
+            notes: 'ต้องสั่งขาโต๊ะใหม่จากผู้ผลิต',
+            images: [],
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          },
+          {
+            id: 2,
+            reportId: 2,
+            title: 'ซ่อมเครื่องปรับอากาศ',
+            description: 'ทำความสะอาดและเติมน้ำยาแอร์',
+            status: 'รอดำเนินการ',
+            priority: 'ปานกลาง',
+            assignedTo: 'ช่าง B',
+            estimatedCost: 800,
+            actualCost: null,
+            dueDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 3 days from now
+            startDate: null,
+            completedDate: null,
             notes: '',
-            images: []
+            images: [],
+            createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+            updatedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
           }
         ];
 
-        res.status(200).json({ success: true, data: mockRepairs });
+        // If requesting specific repair by id
+        if (id) {
+          const repair = mockRepairs.find(r => r.id === parseInt(id));
+          if (repair) {
+            res.status(200).json({ success: true, data: [repair] });
+          } else {
+            res.status(404).json({ success: false, error: 'ไม่พบข้อมูลงานซ่อม' });
+          }
+          return;
+        }
+
+        // Filter repairs based on query parameters
+        let filteredRepairs = mockRepairs;
+        
+        if (status) {
+          filteredRepairs = filteredRepairs.filter(r => r.status === status);
+        }
+        
+        if (assignedTo) {
+          filteredRepairs = filteredRepairs.filter(r => 
+            r.assignedTo.toLowerCase().includes(assignedTo.toLowerCase())
+          );
+        }
+
+        res.status(200).json({ success: true, data: filteredRepairs });
       } catch (error) {
         res.status(500).json({ success: false, error: error.message });
       }
@@ -78,11 +123,16 @@ export default async function handler(req, res) {
       try {
         const { 
           id, 
-          status, 
-          actualCost, 
-          completedDate, 
-          notes,
-          images 
+          title,
+          description,
+          assignedTo,
+          priority,
+          estimatedCost,
+          actualCost,
+          dueDate,
+          completedDate,
+          status,
+          notes
         } = req.body;
 
         if (!id) {
@@ -93,11 +143,26 @@ export default async function handler(req, res) {
         }
 
         // TODO: Update database
-        // If status is 'เสร็จสิ้น', update completedDate and report status
+        // For now, just return success
+        console.log('Updating repair:', { id, title, description, assignedTo, priority, estimatedCost, actualCost, dueDate, completedDate, status, notes });
         
         res.status(200).json({ 
           success: true, 
-          message: 'อัปเดตงานซ่อมสำเร็จ' 
+          message: 'อัปเดตงานซ่อมสำเร็จ',
+          data: {
+            id: parseInt(id),
+            title,
+            description,
+            assignedTo,
+            priority,
+            estimatedCost: estimatedCost ? parseFloat(estimatedCost) : null,
+            actualCost: actualCost ? parseFloat(actualCost) : null,
+            dueDate,
+            completedDate,
+            status,
+            notes,
+            updatedAt: new Date().toISOString()
+          }
         });
       } catch (error) {
         res.status(500).json({ success: false, error: error.message });

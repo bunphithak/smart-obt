@@ -1,12 +1,15 @@
 import { useState, useEffect } from 'react';
 import AssetForm from '../../components/AssetForm';
 import NextImage from 'next/image';
+import ConfirmModal from '../../components/ConfirmModal';
+import AlertModal from '../../components/AlertModal';
 // import dynamic from 'next/dynamic';
 
 // Disable SSR for this page to avoid QR code library issues
 export default function AssetsPage() {
   const [assets, setAssets] = useState([]);
   const [villages, setVillages] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingAsset, setEditingAsset] = useState(null);
@@ -19,7 +22,13 @@ export default function AssetsPage() {
   const [showGeneralQRModal, setShowGeneralQRModal] = useState(false);
   const [generalQRData, setGeneralQRData] = useState(null);
   const [showVillageSelectModal, setShowVillageSelectModal] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(12); // แสดง 12 รายการต่อหน้า
   // const [selectedVillage, setSelectedVillage] = useState(null);
+  
+  // Modal states
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [assetToDelete, setAssetToDelete] = useState(null);
 
   useEffect(() => {
     // Only fetch data on client side
@@ -31,22 +40,27 @@ export default function AssetsPage() {
   const fetchData = async () => {
     try {
       console.log('Fetching data...');
-      const [assetsRes, villagesRes] = await Promise.all([
+      const [assetsRes, villagesRes, categoriesRes] = await Promise.all([
         fetch('/api/assets'),
-        fetch('/api/villages')
+        fetch('/api/villages'),
+        fetch('/api/categories')
       ]);
 
       console.log('Assets response:', assetsRes.status);
       console.log('Villages response:', villagesRes.status);
+      console.log('Categories response:', categoriesRes.status);
 
       const assetsData = await assetsRes.json();
       const villagesData = await villagesRes.json();
+      const categoriesData = await categoriesRes.json();
 
       console.log('Assets data:', assetsData);
       console.log('Villages data:', villagesData);
+      console.log('Categories data:', categoriesData);
 
       if (assetsData.success) setAssets(assetsData.data);
       if (villagesData.success) setVillages(villagesData.data);
+      if (categoriesData.success) setCategories(categoriesData.data);
       
       setLoading(false);
     } catch (fetchError) {
@@ -264,12 +278,19 @@ export default function AssetsPage() {
     }
   };
 
-  const handleDelete = async (asset) => {
-    if (!confirm(`ต้องการลบ "${asset.name}" ใช่หรือไม่?`)) return;
+  const handleDeleteClick = (asset) => {
+    setAssetToDelete(asset);
+    setShowConfirmModal(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!assetToDelete) return;
 
     try {
-      const res = await fetch(`/api/assets?id=${asset.id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/assets?id=${assetToDelete.id}`, { method: 'DELETE' });
       const result = await res.json();
+
+      setShowConfirmModal(false);
 
       if (result.success) {
         showAlert('success', 'สำเร็จ', 'ลบทรัพย์สินสำเร็จ');
@@ -277,8 +298,12 @@ export default function AssetsPage() {
       } else {
         showAlert('error', 'เกิดข้อผิดพลาด', 'เกิดข้อผิดพลาด: ' + result.error);
       }
+      
+      setAssetToDelete(null);
     } catch (error) {
+      setShowConfirmModal(false);
       showAlert('error', 'เกิดข้อผิดพลาด', 'ไม่สามารถลบได้');
+      setAssetToDelete(null);
     }
   };
 
@@ -377,6 +402,8 @@ export default function AssetsPage() {
 
   const printQR = async (asset) => {
     try {
+      showAlert('info', 'กำลังพิมพ์', `กำลังสร้าง QR Code สำหรับ ${asset.name}...`);
+      
       const QRCode = (await import('qrcode')).default;
       const reportUrl = `${window.location.origin}/public?code=${asset.code}`;
       
@@ -405,11 +432,17 @@ export default function AssetsPage() {
         width: 250
       });
       
-      // Load QR code image
+      // Load QR code image with proper error handling
       const qrImage = new Image();
       await new Promise((resolve, reject) => {
-        qrImage.onload = resolve;
-        qrImage.onerror = reject;
+        qrImage.onload = () => {
+          console.log('QR Code image loaded successfully for printing');
+          resolve();
+        };
+        qrImage.onerror = (error) => {
+          console.error('Failed to load QR code image:', error);
+          reject(error);
+        };
         qrImage.src = qrDataURL;
       });
       
@@ -497,14 +530,17 @@ export default function AssetsPage() {
       document.head.appendChild(printStyles);
       document.body.appendChild(printDiv);
       
-      // Print
-      window.print();
-      
-      // Clean up
-      document.body.removeChild(printDiv);
-      document.head.removeChild(printStyles);
-      
-      showAlert('info', 'กำลังพิมพ์', `กำลังพิมพ์ QR Code Label สำหรับ ${asset.name}`);
+      // Print with a small delay to ensure everything is ready
+      setTimeout(() => {
+        window.print();
+        
+        // Clean up after printing
+        setTimeout(() => {
+          document.body.removeChild(printDiv);
+          document.head.removeChild(printStyles);
+          showAlert('success', 'พิมพ์สำเร็จ', `พิมพ์ QR Code Label สำหรับ ${asset.name} เรียบร้อยแล้ว`);
+        }, 1000);
+      }, 100);
     } catch (error) {
       console.error('Error printing QR code:', error);
       showAlert('error', 'เกิดข้อผิดพลาด', 'เกิดข้อผิดพลาดในการพิมพ์ QR Code กรุณาลองใหม่');
@@ -715,20 +751,10 @@ export default function AssetsPage() {
       console.log('Starting QR code generation for:', asset);
       setSelectedAsset(asset);
       setShowQRModal(true);
+      setQrCodeData(null); // Clear previous QR code
       
-      // Test with simple base64 image first
-      const testImage = 'data:image/svg+xml;base64,' + btoa(`
-        <svg xmlns="http://www.w3.org/2000/svg" width="300" height="300">
-          <rect width="300" height="300" fill="white"/>
-          <rect x="50" y="50" width="200" height="200" fill="black"/>
-          <rect x="100" y="100" width="100" height="100" fill="white"/>
-          <text x="150" y="280" text-anchor="middle" font-family="Arial" font-size="12" fill="black">QR Code Test</text>
-        </svg>
-      `);
-      
-      console.log('Setting test QR code data...');
-      setQrCodeData(testImage);
-      console.log('Test QR code set successfully');
+      // Show loading state
+      console.log('Generating QR code...');
       
       // Try to generate real QR code
       try {
@@ -779,6 +805,24 @@ export default function AssetsPage() {
     }
     return true;
   });
+
+  // Pagination logic
+  const totalPages = Math.ceil(filteredAssets.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentAssets = filteredAssets.slice(startIndex, endIndex);
+
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+    // Scroll to top of content
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Reset page when filter changes
+  const handleFilterChange = (newFilter) => {
+    setFilter(newFilter);
+    setCurrentPage(1);
+  };
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -858,24 +902,24 @@ export default function AssetsPage() {
             type="text"
             placeholder="🔍 ค้นหา (ชื่อ หรือ รหัส)"
             value={filter.search}
-            onChange={(e) => setFilter({ ...filter, search: e.target.value })}
+            onChange={(e) => handleFilterChange({ ...filter, search: e.target.value })}
             className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <select
             value={filter.category}
-            onChange={(e) => setFilter({ ...filter, category: e.target.value })}
+            onChange={(e) => handleFilterChange({ ...filter, category: e.target.value })}
             className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="">ทุกหมวดหมู่</option>
-            <option value="เฟอร์นิเจอร์">เฟอร์นิเจอร์</option>
-            <option value="อุปกรณ์ไฟฟ้า">อุปกรณ์ไฟฟ้า</option>
-            <option value="คอมพิวเตอร์">คอมพิวเตอร์</option>
-            <option value="ยานพาหนะ">ยานพาหนะ</option>
-            <option value="อื่นๆ">อื่นๆ</option>
+                   {categories.filter(cat => cat.isActive).map(category => (
+                     <option key={category.id} value={category.name}>
+                       {category.name}
+                     </option>
+                   ))}
           </select>
           <select
             value={filter.villageId}
-            onChange={(e) => setFilter({ ...filter, villageId: e.target.value })}
+            onChange={(e) => handleFilterChange({ ...filter, villageId: e.target.value })}
             className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="">ทุกหมู่บ้าน</option>
@@ -928,7 +972,7 @@ export default function AssetsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {filteredAssets.map(asset => (
+              {currentAssets.map(asset => (
                 <tr key={asset.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 text-sm font-mono">{asset.code}</td>
                   <td className="px-6 py-4 text-sm">{asset.name}</td>
@@ -988,7 +1032,7 @@ export default function AssetsPage() {
                         </svg>
                       </button>
                       <button
-                        onClick={() => handleDelete(asset)}
+                        onClick={() => handleDeleteClick(asset)}
                         className="text-red-600 hover:text-red-800"
                         title="ลบ"
                       >
@@ -1003,6 +1047,90 @@ export default function AssetsPage() {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="mt-6 flex justify-center">
+            <div className="flex items-center space-x-1">
+              <button
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+                className="px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                ก่อนหน้า
+              </button>
+              
+              {/* First page */}
+              {currentPage > 3 && (
+                <>
+                  <button
+                    onClick={() => handlePageChange(1)}
+                    className="px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
+                  >
+                    1
+                  </button>
+                  {currentPage > 4 && (
+                    <span className="px-2 text-gray-500">...</span>
+                  )}
+                </>
+              )}
+              
+              {/* Pages around current page */}
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter(page => {
+                  const start = Math.max(1, currentPage - 2);
+                  const end = Math.min(totalPages, currentPage + 2);
+                  return page >= start && page <= end;
+                })
+                .map(page => (
+                  <button
+                    key={page}
+                    onClick={() => handlePageChange(page)}
+                    className={`px-3 py-2 text-sm border rounded-md ${
+                      page === currentPage
+                        ? 'bg-blue-600 text-white border-blue-600'
+                        : 'border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    {page}
+                  </button>
+                ))}
+              
+              {/* Last page */}
+              {currentPage < totalPages - 2 && (
+                <>
+                  {currentPage < totalPages - 3 && (
+                    <span className="px-2 text-gray-500">...</span>
+                  )}
+                  <button
+                    onClick={() => handlePageChange(totalPages)}
+                    className="px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
+                  >
+                    {totalPages}
+                  </button>
+                </>
+              )}
+              
+              <button
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className="px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                ถัดไป
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Pagination Info */}
+        {filteredAssets.length > 0 && (
+          <div className="mt-4 text-center text-sm text-gray-600">
+            <p>
+              แสดง {startIndex + 1}-{Math.min(endIndex, filteredAssets.length)} จาก {filteredAssets.length} รายการ
+              {totalPages > 1 && ` (หน้า ${currentPage} จาก ${totalPages})`}
+            </p>
+          </div>
+        )}
 
         {filteredAssets.length === 0 && (
           <div className="text-center py-12 text-gray-500">
@@ -1022,6 +1150,7 @@ export default function AssetsPage() {
               <AssetForm
                 asset={editingAsset}
                 villages={villages}
+                categories={categories}
                 onSubmit={handleSubmit}
                 onCancel={() => {
                   setShowForm(false);
@@ -1281,6 +1410,30 @@ export default function AssetsPage() {
           </div>
         </div>
       )}
+
+      {/* Confirm Delete Modal */}
+      <ConfirmModal
+        isOpen={showConfirmModal}
+        onClose={() => {
+          setShowConfirmModal(false);
+          setAssetToDelete(null);
+        }}
+        onConfirm={handleDeleteConfirm}
+        title="ยืนยันการลบ"
+        message={`คุณต้องการลบทรัพย์สิน "${assetToDelete?.name}" ใช่หรือไม่?`}
+        confirmText="ลบ"
+        cancelText="ยกเลิก"
+        type="danger"
+      />
+
+      {/* Alert Modal */}
+      <AlertModal
+        isOpen={showAlertModal}
+        onClose={() => setShowAlertModal(false)}
+        title={alertData.title}
+        message={alertData.message}
+        type={alertData.type}
+      />
     </div>
   );
 }

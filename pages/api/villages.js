@@ -17,7 +17,7 @@ export default async function handler(req, res) {
             address: '123 ถนนตัวอย่าง ตำบล อำเภอ จังหวัด',
             contactPerson: 'นายกำนัน',
             contactPhone: '0812345678',
-            totalAssets: 50,
+            totalAssets: 85,
             createdAt: new Date().toISOString()
           },
           {
@@ -27,7 +27,37 @@ export default async function handler(req, res) {
             address: '456 ถนนทดสอบ ตำบล อำเภอ จังหวัด',
             contactPerson: 'นายผู้ใหญ่',
             contactPhone: '0823456789',
-            totalAssets: 35,
+            totalAssets: 120,
+            createdAt: new Date().toISOString()
+          },
+          {
+            id: 3,
+            name: 'หมู่ 3 บ้านพัฒนา',
+            code: 'V003',
+            address: '789 ถนนพัฒนา ตำบล อำเภอ จังหวัด',
+            contactPerson: 'นายพัฒน์',
+            contactPhone: '0834567890',
+            totalAssets: 95,
+            createdAt: new Date().toISOString()
+          },
+          {
+            id: 4,
+            name: 'หมู่ 4 บ้านสุขสันต์',
+            code: 'V004',
+            address: '321 ถนนสุขสันต์ ตำบล อำเภอ จังหวัด',
+            contactPerson: 'นายสุข',
+            contactPhone: '0845678901',
+            totalAssets: 110,
+            createdAt: new Date().toISOString()
+          },
+          {
+            id: 5,
+            name: 'หมู่ 5 บ้านร่มเย็น',
+            code: 'V005',
+            address: '654 ถนนร่มเย็น ตำบล อำเภอ จังหวัด',
+            contactPerson: 'นายเย็น',
+            contactPhone: '0856789012',
+            totalAssets: 75,
             createdAt: new Date().toISOString()
           }
         ];

@@ -1,10 +1,24 @@
 import { useState, useEffect } from 'react';
+import ConfirmModal from '../../components/ConfirmModal';
+import AlertModal from '../../components/AlertModal';
 
 export default function VillagesPage() {
   const [villages, setVillages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingVillage, setEditingVillage] = useState(null);
+  const [showAssetsModal, setShowAssetsModal] = useState(false);
+  const [selectedVillage, setSelectedVillage] = useState(null);
+  const [villageAssets, setVillageAssets] = useState([]);
+  const [loadingAssets, setLoadingAssets] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(12);
+  
+  // Modal states
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [villageToDelete, setVillageToDelete] = useState(null);
+  const [showAlertModal, setShowAlertModal] = useState(false);
+  const [alertData, setAlertData] = useState({ type: 'success', title: '', message: '' }); // แสดง 12 รายการต่อหน้า
   const [formData, setFormData] = useState({
     name: '',
     code: '',
@@ -16,6 +30,11 @@ export default function VillagesPage() {
   useEffect(() => {
     fetchVillages();
   }, []);
+
+  const showAlert = (title, message, type = 'success') => {
+    setAlertData({ type, title, message });
+    setShowAlertModal(true);
+  };
 
   const fetchVillages = async () => {
     try {
@@ -47,16 +66,16 @@ export default function VillagesPage() {
       const result = await res.json();
 
       if (result.success) {
-        alert(editingVillage ? 'แก้ไขสำเร็จ' : 'เพิ่มหมู่บ้านสำเร็จ');
+        showAlert('สำเร็จ', editingVillage ? 'แก้ไขหมู่บ้านสำเร็จ' : 'เพิ่มหมู่บ้านสำเร็จ', 'success');
         setShowForm(false);
         setEditingVillage(null);
         setFormData({ name: '', code: '', address: '', contactPerson: '', contactPhone: '' });
         fetchVillages();
       } else {
-        alert('เกิดข้อผิดพลาด: ' + result.error);
+        showAlert('ข้อผิดพลาด', result.error, 'error');
       }
     } catch (error) {
-      alert('ไม่สามารถบันทึกได้');
+      showAlert('ข้อผิดพลาด', 'ไม่สามารถบันทึกได้', 'error');
       console.error(error);
     }
   };
@@ -73,27 +92,73 @@ export default function VillagesPage() {
     setShowForm(true);
   };
 
-  const handleDelete = async (village) => {
-    if (!confirm(`ต้องการลบหมู่บ้าน "${village.name}" ใช่หรือไม่?`)) return;
+  const handleDeleteClick = (village) => {
+    setVillageToDelete(village);
+    setShowConfirmModal(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!villageToDelete) return;
 
     try {
-      const res = await fetch(`/api/villages?id=${village.id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/villages?id=${villageToDelete.id}`, { method: 'DELETE' });
       const result = await res.json();
 
+      setShowConfirmModal(false);
+
       if (result.success) {
-        alert('ลบสำเร็จ');
+        showAlert('สำเร็จ', 'ลบหมู่บ้านสำเร็จ', 'success');
         fetchVillages();
       } else {
-        alert('เกิดข้อผิดพลาด: ' + result.error);
+        showAlert('ข้อผิดพลาด', result.error, 'error');
+      }
+      
+      setVillageToDelete(null);
+    } catch (error) {
+      setShowConfirmModal(false);
+      showAlert('ข้อผิดพลาด', 'ไม่สามารถลบได้', 'error');
+      setVillageToDelete(null);
+    }
+  };
+
+  const handleViewAssets = async (village) => {
+    setSelectedVillage(village);
+    setShowAssetsModal(true);
+    setLoadingAssets(true);
+    setCurrentPage(1); // รีเซ็ตหน้าเป็น 1
+    
+    try {
+      const res = await fetch(`/api/assets?villageId=${village.id}`);
+      const data = await res.json();
+      if (data.success) {
+        setVillageAssets(data.data);
       }
     } catch (error) {
-      alert('ไม่สามารถลบได้');
+      console.error('Error fetching assets:', error);
+      setVillageAssets([]);
+    } finally {
+      setLoadingAssets(false);
     }
   };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  // Pagination logic
+  const totalPages = Math.ceil(villageAssets.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentAssets = villageAssets.slice(startIndex, endIndex);
+
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+    // Scroll to top of modal content
+    const modalContent = document.querySelector('.modal-content');
+    if (modalContent) {
+      modalContent.scrollTop = 0;
+    }
   };
 
   if (loading) {
@@ -172,19 +237,30 @@ export default function VillagesPage() {
                 <p className="text-2xl font-bold text-blue-600">{village.totalAssets || 0}</p>
               </div>
 
-              <div className="flex space-x-2 pt-2">
+              <div className="space-y-2 pt-2">
                 <button
-                  onClick={() => handleEdit(village)}
-                  className="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 text-sm"
+                  onClick={() => handleViewAssets(village)}
+                  className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm flex items-center justify-center gap-2"
                 >
-                  แก้ไข
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                  </svg>
+                  ดูทรัพย์สิน
                 </button>
-                <button
-                  onClick={() => handleDelete(village)}
-                  className="flex-1 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 text-sm"
-                >
-                  ลบ
-                </button>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => handleEdit(village)}
+                    className="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 text-sm"
+                  >
+                    แก้ไข
+                  </button>
+                  <button
+                    onClick={() => handleDeleteClick(village)}
+                    className="flex-1 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 text-sm"
+                  >
+                    ลบ
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -305,6 +381,183 @@ export default function VillagesPage() {
           </div>
         </div>
       )}
+
+      {/* Assets Modal */}
+      {showAssetsModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex justify-between items-center">
+                <h2 className="text-2xl font-bold text-gray-900">
+                  รายการทรัพย์สิน - {selectedVillage?.name}
+                </h2>
+                <button
+                  onClick={() => setShowAssetsModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <p className="text-gray-600 mt-1">
+                รหัสหมู่บ้าน: {selectedVillage?.code} | ที่อยู่: {selectedVillage?.address}
+              </p>
+            </div>
+            
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)] modal-content">
+              {loadingAssets ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full"></div>
+                  <span className="ml-3 text-gray-600">กำลังโหลด...</span>
+                </div>
+              ) : villageAssets.length > 0 ? (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {currentAssets.map((asset) => (
+                    <div key={asset.id} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                      <div className="flex justify-between items-start mb-3">
+                        <div>
+                          <h3 className="font-semibold text-gray-900">{asset.name}</h3>
+                          <p className="text-sm text-gray-600">รหัส: {asset.code}</p>
+                        </div>
+                        <span className={`px-2 py-1 text-xs rounded-full ${
+                          asset.status === 'ใช้งานได้' ? 'bg-green-100 text-green-800' :
+                          asset.status === 'ชำรุด' ? 'bg-red-100 text-red-800' :
+                          asset.status === 'ซ่อมแซม' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          {asset.status}
+                        </span>
+                      </div>
+                      
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">ประเภท:</span>
+                          <span className="text-gray-900">{asset.category}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">มูลค่า:</span>
+                          <span className="text-gray-900">฿{asset.value?.toLocaleString() || '-'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">วันที่ซื้อ:</span>
+                          <span className="text-gray-900">{asset.purchaseDate || '-'}</span>
+                        </div>
+                        {asset.locationName && (
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">สถานที่:</span>
+                            <span className="text-gray-900">{asset.locationName}</span>
+                          </div>
+                        )}
+                        {asset.latitude && asset.longitude && (
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">พิกัด:</span>
+                            <span className="text-gray-900 text-xs">{asset.latitude.toFixed(4)}, {asset.longitude.toFixed(4)}</span>
+                          </div>
+                        )}
+                      </div>
+                      
+                      {asset.description && (
+                        <div className="mt-3 pt-3 border-t border-gray-100">
+                          <p className="text-sm text-gray-600 line-clamp-2">{asset.description}</p>
+                        </div>
+                      )}
+                    </div>
+                    ))}
+                  </div>
+
+                  {/* Pagination */}
+                  {totalPages > 1 && (
+                    <div className="mt-6 flex justify-center">
+                      <div className="flex items-center space-x-2">
+                        <button
+                          onClick={() => handlePageChange(currentPage - 1)}
+                          disabled={currentPage === 1}
+                          className="px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          ก่อนหน้า
+                        </button>
+                        
+                        {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                          <button
+                            key={page}
+                            onClick={() => handlePageChange(page)}
+                            className={`px-3 py-2 text-sm border rounded-md ${
+                              page === currentPage
+                                ? 'bg-blue-600 text-white border-blue-600'
+                                : 'border-gray-300 hover:bg-gray-50'
+                            }`}
+                          >
+                            {page}
+                          </button>
+                        ))}
+                        
+                        <button
+                          onClick={() => handlePageChange(currentPage + 1)}
+                          disabled={currentPage === totalPages}
+                          className="px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          ถัดไป
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="text-center py-12">
+                  <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                  </svg>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">ไม่มีทรัพย์สินในหมู่บ้านนี้</h3>
+                  <p className="text-gray-500">ยังไม่มีทรัพย์สินที่ลงทะเบียนในหมู่บ้าน {selectedVillage?.name}</p>
+                </div>
+              )}
+            </div>
+            
+            <div className="p-6 border-t border-gray-200 bg-gray-50">
+              <div className="flex justify-between items-center">
+                <div className="text-sm text-gray-600">
+                  <p>รวม {villageAssets.length} รายการ</p>
+                  {totalPages > 1 && (
+                    <p>หน้า {currentPage} จาก {totalPages} (แสดง {startIndex + 1}-{Math.min(endIndex, villageAssets.length)} จาก {villageAssets.length})</p>
+                  )}
+                </div>
+                <button
+                  onClick={() => setShowAssetsModal(false)}
+                  className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+                >
+                  ปิด
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm Delete Modal */}
+      <ConfirmModal
+        isOpen={showConfirmModal}
+        onClose={() => {
+          setShowConfirmModal(false);
+          setVillageToDelete(null);
+        }}
+        onConfirm={handleDeleteConfirm}
+        title="ยืนยันการลบ"
+        message={`คุณต้องการลบหมู่บ้าน "${villageToDelete?.name}" ใช่หรือไม่?`}
+        confirmText="ลบ"
+        cancelText="ยกเลิก"
+        type="danger"
+      />
+
+      {/* Alert Modal */}
+      <AlertModal
+        isOpen={showAlertModal}
+        onClose={() => setShowAlertModal(false)}
+        title={alertData.title}
+        message={alertData.message}
+        type={alertData.type}
+      />
     </div>
   );
 }

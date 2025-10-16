@@ -53,12 +53,6 @@ export default function PublicHome() {
                   <p className="text-sm text-gray-600">ระบบจัดการทรัพย์สินและงานซ่อมบำรุง</p>
                 </div>
               </div>
-              <button
-                onClick={() => router.push('/')}
-                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium text-gray-700 transition-colors"
-              >
-                เข้าสู่ระบบผู้ดูแล
-              </button>
             </div>
           </div>
         </header>
