@@ -440,6 +440,63 @@ export default function PublicReportForm() {
             </div>
           </div>
         </div>
+
+        {/* Alert Modal */}
+        {showAlertModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+              <div className="p-6">
+                {/* Icon and Title */}
+                <div className="flex items-center mb-4">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center mr-3 ${
+                    alertData.type === 'success' ? 'bg-green-100' :
+                    alertData.type === 'error' ? 'bg-red-100' :
+                    alertData.type === 'warning' ? 'bg-yellow-100' :
+                    'bg-blue-100'
+                  }`}>
+                    {alertData.type === 'success' && <span className="text-green-600 text-xl">✓</span>}
+                    {alertData.type === 'error' && <span className="text-red-600 text-xl">✕</span>}
+                    {alertData.type === 'warning' && <span className="text-yellow-600 text-xl">⚠</span>}
+                    {alertData.type === 'info' && <span className="text-blue-600 text-xl">ℹ</span>}
+                  </div>
+                  <h3 className={`text-lg font-semibold ${
+                    alertData.type === 'success' ? 'text-green-800' :
+                    alertData.type === 'error' ? 'text-red-800' :
+                    alertData.type === 'warning' ? 'text-yellow-800' :
+                    'text-blue-800'
+                  }`}>
+                    {alertData.title}
+                  </h3>
+                </div>
+                
+                {/* Message */}
+                <p className={`text-sm ${
+                  alertData.type === 'success' ? 'text-green-700' :
+                  alertData.type === 'error' ? 'text-red-700' :
+                  alertData.type === 'warning' ? 'text-yellow-700' :
+                  'text-blue-700'
+                } mb-6`}>
+                  {alertData.message}
+                </p>
+                
+                {/* Button */}
+                <div className="flex justify-end">
+                  <button
+                    onClick={closeAlert}
+                    className={`px-6 py-2 rounded-lg text-white font-medium transition-colors ${
+                      alertData.type === 'success' ? 'bg-green-600 hover:bg-green-700' :
+                      alertData.type === 'error' ? 'bg-red-600 hover:bg-red-700' :
+                      alertData.type === 'warning' ? 'bg-yellow-600 hover:bg-yellow-700' :
+                      'bg-blue-600 hover:bg-blue-700'
+                    }`}
+                  >
+                    ตกลง
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </>
   );
