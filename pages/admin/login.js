@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
+import Link from 'next/link';
 
 export default function AdminLogin() {
   const router = useRouter();
@@ -179,12 +180,12 @@ export default function AdminLogin() {
 
           {/* Links */}
           <div className="text-center mt-6 space-y-2">
-            <a
+            <Link
               href="/technician/login"
               className="block text-blue-600 hover:text-blue-800 text-sm"
             >
               เข้าสู่ระบบช่าง →
-            </a>
+            </Link>
             <button
               onClick={() => router.push('/public')}
               className="block w-full text-gray-600 hover:text-gray-900 text-sm"

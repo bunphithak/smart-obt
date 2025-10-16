@@ -205,8 +205,8 @@ export default function MapPicker({ initialLat, initialLng, onLocationSelect }) 
 
         {showResults && searchResults.length === 0 && searchQuery.length >= 2 && !searching && (
           <div className="absolute z-[9999] w-full mt-1 bg-white border-2 border-gray-300 rounded-lg shadow-lg p-4 text-center">
-            <p className="text-sm text-gray-500">ไม่พบสถานที่ "{searchQuery}"</p>
-            <p className="text-xs text-gray-400 mt-1">ลองพิมพ์ชื่อเต็มๆ หรือเพิ่มคำว่า "จังหวัด"</p>
+            <p className="text-sm text-gray-500">ไม่พบสถานที่ &quot;{searchQuery}&quot;</p>
+            <p className="text-xs text-gray-400 mt-1">ลองพิมพ์ชื่อเต็มๆ หรือเพิ่มคำว่า &quot;จังหวัด&quot;</p>
           </div>
         )}
       </div>
