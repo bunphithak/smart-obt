@@ -7,8 +7,11 @@ let path = null;
 
 if (!isVercel) {
   try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const multer = require('multer');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     fs = require('fs');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     path = require('path');
 
     // Configure multer for image uploads

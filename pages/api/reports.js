@@ -12,8 +12,11 @@ let fs = null;
 if (!isVercel) {
   try {
     // Lazy load dependencies
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const multer = require('multer');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     path = require('path');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     fs = require('fs');
 
     // Configure multer for file uploads
