@@ -1,35 +1,53 @@
-import multer from 'multer';
-import path from 'path';
-import fs from 'fs';
+// Dynamic imports for file upload (only used in POST requests)
+// This prevents Multer from running on Vercel serverless functions for GET requests
 
-// Configure multer for file uploads
-const upload = multer({
-  dest: 'public/uploads/',
-  limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB limit
-  },
-  fileFilter: (req, file, cb) => {
-    if (file.mimetype.startsWith('image/')) {
-      cb(null, true);
-    } else {
-      cb(new Error('Only image files are allowed'), false);
-    }
-  }
-});
+// We'll use conditional imports and handle file uploads differently on Vercel
+const isVercel = process.env.VERCEL === '1';
 
-// Create uploads directory if it doesn't exist (skip on Vercel)
-const uploadDir = 'public/uploads';
-if (process.env.VERCEL !== '1' && !fs.existsSync(uploadDir)) {
+// Only configure multer and filesystem for non-Vercel environments
+let upload = null;
+let path = null;
+let fs = null;
+
+if (!isVercel) {
   try {
-    fs.mkdirSync(uploadDir, { recursive: true });
+    // Lazy load dependencies
+    const multer = require('multer');
+    path = require('path');
+    fs = require('fs');
+
+    // Configure multer for file uploads
+    upload = multer({
+      dest: 'public/uploads/',
+      limits: {
+        fileSize: 10 * 1024 * 1024, // 10MB limit
+      },
+      fileFilter: (req, file, cb) => {
+        if (file.mimetype.startsWith('image/')) {
+          cb(null, true);
+        } else {
+          cb(new Error('Only image files are allowed'), false);
+        }
+      }
+    });
+
+    // Create uploads directory if it doesn't exist
+    const uploadDir = 'public/uploads';
+    if (!fs.existsSync(uploadDir)) {
+      try {
+        fs.mkdirSync(uploadDir, { recursive: true });
+      } catch (error) {
+        console.warn('Could not create uploads directory:', error.message);
+      }
+    }
   } catch (error) {
-    console.warn('Could not create uploads directory:', error.message);
+    console.warn('Multer not available (Vercel environment):', error.message);
   }
 }
 
 export const config = {
   api: {
-    bodyParser: false, // Disable default body parser
+    bodyParser: true, // Enable body parser for GET/PUT requests
   },
 };
 
@@ -39,7 +57,7 @@ export default async function handler(req, res) {
   switch (method) {
     case 'GET':
       try {
-        // const { assetId, status } = req.query;
+        const { id, assetId, status, ticketId } = req.query;
         
         // TODO: Implement database query
         const mockReports = [
@@ -127,7 +145,20 @@ export default async function handler(req, res) {
           }
         ];
 
-        res.status(200).json({ success: true, data: mockReports });
+        // Filter by query parameters
+        let filteredReports = mockReports;
+        
+        if (id) {
+          filteredReports = mockReports.filter(report => report.id === parseInt(id));
+        } else if (ticketId) {
+          filteredReports = mockReports.filter(report => report.ticketId === ticketId);
+        } else if (assetId) {
+          filteredReports = mockReports.filter(report => report.assetCode === assetId);
+        } else if (status) {
+          filteredReports = mockReports.filter(report => report.status === status);
+        }
+
+        res.status(200).json({ success: true, data: filteredReports });
       } catch (error) {
         res.status(500).json({ success: false, error: error.message });
       }
@@ -135,16 +166,20 @@ export default async function handler(req, res) {
 
     case 'POST':
       try {
-        // Handle file upload
-        await new Promise((resolve, reject) => {
-          upload.array('images', 5)(req, res, (err) => {
-            if (err) {
-              reject(err);
-            } else {
-              resolve();
-            }
+        let bodyData = req.body;
+
+        // Handle file upload only in non-Vercel environment
+        if (!isVercel && upload) {
+          await new Promise((resolve, reject) => {
+            upload.array('images', 5)(req, res, (err) => {
+              if (err) {
+                reject(err);
+              } else {
+                resolve();
+              }
+            });
           });
-        });
+        }
 
         const { 
           assetCode,
@@ -157,7 +192,7 @@ export default async function handler(req, res) {
           timestamp,
           reportType,
           villageId
-        } = req.body;
+        } = bodyData;
 
         // Validation based on report type
         if (reportType === 'general') {
@@ -178,9 +213,9 @@ export default async function handler(req, res) {
           }
         }
 
-        // Process uploaded files
+        // Process uploaded files (only for non-Vercel)
         const uploadedImages = [];
-        if (req.files && req.files.length > 0) {
+        if (!isVercel && req.files && req.files.length > 0 && path && fs) {
           req.files.forEach((file, index) => {
             const fileExtension = path.extname(file.originalname);
             const newFileName = `report_${Date.now()}_${index}${fileExtension}`;
@@ -190,6 +225,8 @@ export default async function handler(req, res) {
             uploadedImages.push(`/uploads/${newFileName}`);
           });
         }
+        // On Vercel, images should be uploaded to cloud storage (S3, Cloudinary, etc.)
+        // For now, we'll accept base64 images or URLs in the request body
 
         // Generate ticket ID
         const reportId = Date.now();
@@ -221,6 +258,7 @@ export default async function handler(req, res) {
           message: 'ส่งรายงานสำเร็จ'
         });
       } catch (error) {
+        console.error('POST /api/reports error:', error);
         res.status(500).json({ success: false, error: error.message });
       }
       break;

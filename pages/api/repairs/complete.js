@@ -1,41 +1,53 @@
-import multer from 'multer';
-import fs from 'fs';
-import path from 'path';
+// Conditional imports for file upload (only for non-Vercel environments)
+const isVercel = process.env.VERCEL === '1';
 
-// Configure multer for image uploads
-const upload = multer({
-  storage: multer.diskStorage({
-    destination: (req, file, cb) => {
-      const uploadDir = 'public/uploads/repairs';
-      // Only create directory if not on Vercel
-      if (process.env.VERCEL !== '1' && !fs.existsSync(uploadDir)) {
-        try {
-          fs.mkdirSync(uploadDir, { recursive: true });
-        } catch (error) {
-          console.warn('Could not create uploads directory:', error.message);
+let upload = null;
+let fs = null;
+let path = null;
+
+if (!isVercel) {
+  try {
+    const multer = require('multer');
+    fs = require('fs');
+    path = require('path');
+
+    // Configure multer for image uploads
+    upload = multer({
+      storage: multer.diskStorage({
+        destination: (req, file, cb) => {
+          const uploadDir = 'public/uploads/repairs';
+          if (!fs.existsSync(uploadDir)) {
+            try {
+              fs.mkdirSync(uploadDir, { recursive: true });
+            } catch (error) {
+              console.warn('Could not create uploads directory:', error.message);
+            }
+          }
+          cb(null, uploadDir);
+        },
+        filename: (req, file, cb) => {
+          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+          cb(null, `repair-after-${uniqueSuffix}${path.extname(file.originalname)}`);
+        }
+      }),
+      limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+      fileFilter: (req, file, cb) => {
+        if (file.mimetype.startsWith('image/')) {
+          cb(null, true);
+        } else {
+          cb(new Error('Only images are allowed'));
         }
       }
-      cb(null, uploadDir);
-    },
-    filename: (req, file, cb) => {
-      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-      cb(null, `repair-after-${uniqueSuffix}${path.extname(file.originalname)}`);
-    }
-  }),
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
-  fileFilter: (req, file, cb) => {
-    if (file.mimetype.startsWith('image/')) {
-      cb(null, true);
-    } else {
-      cb(new Error('Only images are allowed'));
-    }
+    });
+  } catch (error) {
+    console.warn('Multer not available (Vercel environment):', error.message);
   }
-});
+}
 
-// Disable Next.js body parsing
+// Enable body parsing for Vercel
 export const config = {
   api: {
-    bodyParser: false,
+    bodyParser: !isVercel ? false : true, // Use bodyParser on Vercel, disable for local multer
   },
 };
 
@@ -56,8 +68,14 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Handle file upload
-    await runMiddleware(req, res, upload.array('afterImages', 10));
+    let afterImages = [];
+
+    // Handle file upload only in non-Vercel environment
+    if (!isVercel && upload) {
+      await runMiddleware(req, res, upload.array('afterImages', 10));
+      // Get uploaded file paths
+      afterImages = req.files ? req.files.map(file => `/uploads/repairs/${file.filename}`) : [];
+    }
 
     const { id, status, actualCost, completedDate, notes } = req.body;
 
@@ -68,8 +86,11 @@ export default async function handler(req, res) {
       });
     }
 
-    // Get uploaded file paths
-    const afterImages = req.files ? req.files.map(file => `/uploads/repairs/${file.filename}`) : [];
+    // On Vercel, images should be sent as base64 or URLs from cloud storage
+    // For now, we'll accept the repair completion without file validation
+    if (isVercel) {
+      console.log('Running on Vercel - file uploads should use cloud storage');
+    }
 
     console.log('Completing repair:', {
       id,
@@ -77,7 +98,8 @@ export default async function handler(req, res) {
       actualCost,
       completedDate,
       notes,
-      afterImages
+      afterImages: afterImages.length,
+      isVercel
     });
 
     // TODO: Update database with after images
