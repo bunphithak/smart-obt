@@ -1,58 +1,6 @@
-// Dynamic imports for file upload (only used in POST requests)
-// This prevents Multer from running on Vercel serverless functions for GET requests
-
-// We'll use conditional imports and handle file uploads differently on Vercel
-const isVercel = process.env.VERCEL === '1';
-
-// Only configure multer and filesystem for non-Vercel environments
-let upload = null;
-let path = null;
-let fs = null;
-
-if (!isVercel) {
-  try {
-    // Lazy load dependencies
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const multer = require('multer');
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    path = require('path');
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    fs = require('fs');
-
-    // Configure multer for file uploads
-    upload = multer({
-      dest: 'public/uploads/',
-      limits: {
-        fileSize: 10 * 1024 * 1024, // 10MB limit
-      },
-      fileFilter: (req, file, cb) => {
-        if (file.mimetype.startsWith('image/')) {
-          cb(null, true);
-        } else {
-          cb(new Error('Only image files are allowed'), false);
-        }
-      }
-    });
-
-    // Create uploads directory if it doesn't exist
-    const uploadDir = 'public/uploads';
-    if (!fs.existsSync(uploadDir)) {
-      try {
-        fs.mkdirSync(uploadDir, { recursive: true });
-      } catch (error) {
-        console.warn('Could not create uploads directory:', error.message);
-      }
-    }
-  } catch (error) {
-    console.warn('Multer not available (Vercel environment):', error.message);
-  }
-}
-
-export const config = {
-  api: {
-    bodyParser: true, // Enable body parser for GET/PUT requests
-  },
-};
+// For Vercel deployment: File uploads should use cloud storage (Cloudinary, S3, etc.)
+// This API uses bodyParser for simple form data
+// Images can be sent as base64 strings or uploaded to cloud storage first
 
 export default async function handler(req, res) {
   const { method } = req;
@@ -169,21 +117,6 @@ export default async function handler(req, res) {
 
     case 'POST':
       try {
-        let bodyData = req.body;
-
-        // Handle file upload only in non-Vercel environment
-        if (!isVercel && upload) {
-          await new Promise((resolve, reject) => {
-            upload.array('images', 5)(req, res, (err) => {
-              if (err) {
-                reject(err);
-              } else {
-                resolve();
-              }
-            });
-          });
-        }
-
         const { 
           assetCode,
           problemType,
@@ -195,7 +128,7 @@ export default async function handler(req, res) {
           timestamp,
           reportType,
           villageId
-        } = bodyData;
+        } = req.body;
 
         // Validation based on report type
         if (reportType === 'general') {
@@ -216,20 +149,9 @@ export default async function handler(req, res) {
           }
         }
 
-        // Process uploaded files (only for non-Vercel)
+        // Note: For Vercel deployment, file uploads should use cloud storage
+        // Images can be sent as URLs or base64 strings in the request body
         const uploadedImages = [];
-        if (!isVercel && req.files && req.files.length > 0 && path && fs) {
-          req.files.forEach((file, index) => {
-            const fileExtension = path.extname(file.originalname);
-            const newFileName = `report_${Date.now()}_${index}${fileExtension}`;
-            const newFilePath = path.join('public/uploads', newFileName);
-            
-            fs.renameSync(file.path, newFilePath);
-            uploadedImages.push(`/uploads/${newFileName}`);
-          });
-        }
-        // On Vercel, images should be uploaded to cloud storage (S3, Cloudinary, etc.)
-        // For now, we'll accept base64 images or URLs in the request body
 
         // Generate ticket ID
         const reportId = Date.now();
