@@ -1,198 +1,374 @@
-// import { db } from '../../lib/db';
+// Repairs API - Connected to PostgreSQL Database
+require('dotenv').config({ path: '.env.local' });
+const { Pool } = require('pg');
+
+const pool = new Pool({
+  host: process.env.DB_HOST || 'localhost',
+  port: parseInt(process.env.DB_PORT) || 5432,
+  user: process.env.DB_USER || 'bunphithak',
+  password: process.env.DB_PASSWORD || '',
+  database: process.env.DB_NAME || 'smart_obt',
+});
 
 export default async function handler(req, res) {
+  // Set CORS headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
+  }
+
   const { method } = req;
 
-  switch (method) {
-    case 'GET':
-      try {
+  try {
+    switch (method) {
+      case 'GET':
         const { id, reportId, status, assignedTo } = req.query;
         
-        // TODO: Implement database query
-        const mockRepairs = [
-          {
-            id: 1,
-            reportId: 1,
-            title: 'ซ่อมขาโต๊ะหัก',
-            description: 'เปลี่ยนขาโต๊ะใหม่',
-            status: 'กำลังดำเนินการ',
-            priority: 'สูง',
-            assignedTo: 'ช่าง A',
-            estimatedCost: 500,
-            actualCost: null,
-            dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 7 days from now
-            startDate: new Date().toISOString(),
-            completedDate: null,
-            notes: 'ต้องสั่งขาโต๊ะใหม่จากผู้ผลิต',
-            images: [],
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-          },
-          {
-            id: 2,
-            reportId: 2,
-            title: 'ซ่อมเครื่องปรับอากาศ',
-            description: 'ทำความสะอาดและเติมน้ำยาแอร์',
-            status: 'รอดำเนินการ',
-            priority: 'ปานกลาง',
-            assignedTo: 'ช่าง B',
-            estimatedCost: 800,
-            actualCost: null,
-            dueDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 3 days from now
-            startDate: null,
-            completedDate: null,
-            notes: '',
-            images: [],
-            createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-            updatedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
-          }
-        ];
-
-        // If requesting specific repair by id
         if (id) {
-          const repair = mockRepairs.find(r => r.id === parseInt(id));
-          if (repair) {
-            res.status(200).json({ success: true, data: [repair] });
-          } else {
-            res.status(404).json({ success: false, error: 'ไม่พบข้อมูลงานซ่อม' });
+          // Get single repair with related info
+          const result = await pool.query(`
+            SELECT 
+              r.*,
+              rep.title as report_title,
+              rep.ticket_id,
+              rep.asset_code,
+              a.name as asset_name,
+              v.name as village_name
+            FROM repairs r
+            LEFT JOIN reports rep ON r.report_id = rep.id
+            LEFT JOIN assets a ON rep.asset_code = a.code
+            LEFT JOIN villages v ON a.village_id = v.id
+            WHERE r.id = $1
+          `, [id]);
+
+          if (result.rows.length === 0) {
+            return res.status(404).json({ 
+              success: false, 
+              error: 'ไม่พบงานซ่อมที่ระบุ' 
+            });
           }
-          return;
-        }
 
-        // Filter repairs based on query parameters
-        let filteredRepairs = mockRepairs;
-        
-        if (status) {
-          filteredRepairs = filteredRepairs.filter(r => r.status === status);
-        }
-        
-        if (assignedTo) {
-          filteredRepairs = filteredRepairs.filter(r => 
-            r.assignedTo.toLowerCase().includes(assignedTo.toLowerCase())
-          );
-        }
+          const repair = result.rows[0];
+          res.status(200).json({ 
+            success: true, 
+            data: {
+              id: repair.id,
+              reportId: repair.report_id,
+              reportTitle: repair.report_title,
+              ticketId: repair.ticket_id,
+              assetCode: repair.asset_code,
+              assetName: repair.asset_name,
+              villageName: repair.village_name,
+              title: repair.title,
+              description: repair.description,
+              status: repair.status,
+              priority: repair.priority,
+              assignedTo: repair.assigned_to,
+              estimatedCost: repair.estimated_cost,
+              actualCost: repair.actual_cost,
+              dueDate: repair.due_date,
+              startDate: repair.start_date,
+              completedDate: repair.completed_date,
+              notes: repair.notes,
+              images: repair.images || [],
+              createdAt: repair.created_at,
+              updatedAt: repair.updated_at
+            }
+          });
+        } else {
+          // Build query with filters
+          let query = `
+            SELECT 
+              r.*,
+              rep.title as report_title,
+              rep.ticket_id,
+              rep.asset_code,
+              a.name as asset_name,
+              v.name as village_name
+            FROM repairs r
+            LEFT JOIN reports rep ON r.report_id = rep.id
+            LEFT JOIN assets a ON rep.asset_code = a.code
+            LEFT JOIN villages v ON a.village_id = v.id
+            WHERE 1=1
+          `;
+          const queryParams = [];
+          let paramIndex = 1;
 
-        res.status(200).json({ success: true, data: filteredRepairs });
-      } catch (error) {
-        res.status(500).json({ success: false, error: error.message });
-      }
-      break;
+          if (reportId) {
+            query += ` AND r.report_id = $${paramIndex}`;
+            queryParams.push(reportId);
+            paramIndex++;
+          }
 
-    case 'POST':
-      try {
+          if (status) {
+            query += ` AND r.status = $${paramIndex}`;
+            queryParams.push(status);
+            paramIndex++;
+          }
+
+          if (assignedTo) {
+            query += ` AND r.assigned_to ILIKE $${paramIndex}`;
+            queryParams.push(`%${assignedTo}%`);
+            paramIndex++;
+          }
+
+          query += ` ORDER BY r.created_at DESC`;
+
+          const result = await pool.query(query, queryParams);
+          
+          const repairs = result.rows.map(row => ({
+            id: row.id,
+            reportId: row.report_id,
+            reportTitle: row.report_title,
+            ticketId: row.ticket_id,
+            assetCode: row.asset_code,
+            assetName: row.asset_name,
+            villageName: row.village_name,
+            title: row.title,
+            description: row.description,
+            status: row.status,
+            priority: row.priority,
+            assignedTo: row.assigned_to,
+            estimatedCost: row.estimated_cost,
+            actualCost: row.actual_cost,
+            dueDate: row.due_date,
+            startDate: row.start_date,
+            completedDate: row.completed_date,
+            notes: row.notes,
+            images: row.images || [],
+            createdAt: row.created_at,
+            updatedAt: row.updated_at
+          }));
+
+          res.status(200).json({ 
+            success: true, 
+            data: repairs,
+            total: repairs.length
+          });
+        }
+        break;
+
+      case 'POST':
         const { 
-          reportId, 
+          reportId: repairReportId, 
           title, 
           description, 
-          assignedTo, 
+          priority, 
+          assignedTo: repairAssignedTo, 
           estimatedCost, 
-          priority 
+          dueDate, 
+          notes 
         } = req.body;
 
-        if (!reportId || !title || !assignedTo) {
+        // Validate required fields
+        if (!repairReportId || !title || !description) {
           return res.status(400).json({ 
             success: false, 
-            error: 'กรุณากรอกข้อมูลให้ครบถ้วน' 
+            error: 'กรุณากรอกข้อมูลที่จำเป็น (reportId, title, description)' 
           });
         }
 
-        // TODO: Insert into database and update report status
-        const newRepair = {
-          id: Date.now(),
-          reportId,
-          title,
-          description,
-          assignedTo,
-          estimatedCost: estimatedCost || 0,
-          actualCost: null,
-          priority: priority || 'ปานกลาง',
-          status: 'รอดำเนินการ',
-          startDate: new Date().toISOString(),
-          completedDate: null,
-          notes: '',
-          images: []
-        };
+        // Verify report exists
+        const reportExists = await pool.query(`
+          SELECT r.id, r.title, r.asset_code
+          FROM reports r
+          WHERE r.id = $1
+        `, [repairReportId]);
 
-        res.status(201).json({ success: true, data: newRepair });
-      } catch (error) {
-        res.status(500).json({ success: false, error: error.message });
-      }
-      break;
+        if (reportExists.rows.length === 0) {
+          return res.status(400).json({
+            success: false,
+            error: 'ไม่พบรายงานที่ระบุ'
+          });
+        }
 
-    case 'PUT':
-      try {
+        // Check if repair already exists for this report
+        const existingRepair = await pool.query(
+          'SELECT id FROM repairs WHERE report_id = $1',
+          [repairReportId]
+        );
+
+        if (existingRepair.rows.length > 0) {
+          return res.status(400).json({
+            success: false,
+            error: 'มีงานซ่อมสำหรับรายงานนี้อยู่แล้ว'
+          });
+        }
+
+        const result = await pool.query(`
+          INSERT INTO repairs (
+            report_id, title, description, status, priority, assigned_to,
+            estimated_cost, due_date, notes
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+          RETURNING *
+        `, [
+          repairReportId,
+          title.trim(),
+          description.trim(),
+          'รอดำเนินการ',
+          priority || 'ปานกลาง',
+          repairAssignedTo?.trim() || '',
+          estimatedCost ? parseFloat(estimatedCost) : null,
+          dueDate || null,
+          notes?.trim() || ''
+        ]);
+
+        const newRepair = result.rows[0];
+        res.status(201).json({ 
+          success: true, 
+          data: {
+            id: newRepair.id,
+            reportId: newRepair.report_id,
+            reportTitle: reportExists.rows[0].title,
+            assetCode: reportExists.rows[0].asset_code,
+            title: newRepair.title,
+            description: newRepair.description,
+            status: newRepair.status,
+            priority: newRepair.priority,
+            assignedTo: newRepair.assigned_to,
+            estimatedCost: newRepair.estimated_cost,
+            actualCost: newRepair.actual_cost,
+            dueDate: newRepair.due_date,
+            startDate: newRepair.start_date,
+            completedDate: newRepair.completed_date,
+            notes: newRepair.notes,
+            images: newRepair.images || [],
+            createdAt: newRepair.created_at
+          }
+        });
+        break;
+
+      case 'PUT':
         const { 
-          id, 
-          title,
-          description,
-          assignedTo,
-          priority,
-          estimatedCost,
-          actualCost,
-          dueDate,
-          completedDate,
-          status,
-          notes
+          id: updateId, 
+          status: updateStatus, 
+          priority: updatePriority, 
+          assignedTo: updateAssignedTo,
+          estimatedCost: updateEstimatedCost,
+          actualCost: updateActualCost,
+          dueDate: updateDueDate,
+          startDate: updateStartDate,
+          completedDate: updateCompletedDate,
+          notes: updateNotes,
+          images: updateImages
         } = req.body;
 
-        if (!id) {
+        if (!updateId) {
           return res.status(400).json({ 
             success: false, 
-            error: 'ไม่พบ ID ของงานซ่อม' 
+            error: 'กรุณาระบุ ID ของงานซ่อม' 
           });
         }
 
-        // TODO: Update database
-        // For now, just return success
-        console.log('Updating repair:', { id, title, description, assignedTo, priority, estimatedCost, actualCost, dueDate, completedDate, status, notes });
-        
+        // Check if repair exists
+        const repairExists = await pool.query(
+          'SELECT id FROM repairs WHERE id = $1',
+          [updateId]
+        );
+
+        if (repairExists.rows.length === 0) {
+          return res.status(404).json({
+            success: false,
+            error: 'ไม่พบงานซ่อมที่ต้องการอัปเดต'
+          });
+        }
+
+        const updateResult = await pool.query(`
+          UPDATE repairs 
+          SET status = COALESCE($2, status),
+              priority = COALESCE($3, priority),
+              assigned_to = COALESCE($4, assigned_to),
+              estimated_cost = COALESCE($5, estimated_cost),
+              actual_cost = COALESCE($6, actual_cost),
+              due_date = COALESCE($7, due_date),
+              start_date = COALESCE($8, start_date),
+              completed_date = COALESCE($9, completed_date),
+              notes = COALESCE($10, notes),
+              images = COALESCE($11, images),
+              updated_at = NOW()
+          WHERE id = $1
+          RETURNING *
+        `, [
+          updateId,
+          updateStatus,
+          updatePriority,
+          updateAssignedTo?.trim(),
+          updateEstimatedCost ? parseFloat(updateEstimatedCost) : null,
+          updateActualCost ? parseFloat(updateActualCost) : null,
+          updateDueDate,
+          updateStartDate,
+          updateCompletedDate,
+          updateNotes?.trim(),
+          updateImages ? JSON.stringify(updateImages) : null
+        ]);
+
         res.status(200).json({ 
           success: true, 
           message: 'อัปเดตงานซ่อมสำเร็จ',
-          data: {
-            id: parseInt(id),
-            title,
-            description,
-            assignedTo,
-            priority,
-            estimatedCost: estimatedCost ? parseFloat(estimatedCost) : null,
-            actualCost: actualCost ? parseFloat(actualCost) : null,
-            dueDate,
-            completedDate,
-            status,
-            notes,
-            updatedAt: new Date().toISOString()
-          }
+          data: updateResult.rows[0]
         });
-      } catch (error) {
-        res.status(500).json({ success: false, error: error.message });
-      }
-      break;
+        break;
 
-    case 'DELETE':
-      try {
-        const { id } = req.query;
-
-        if (!id) {
+      case 'DELETE':
+        const { id: deleteId } = req.query;
+        
+        if (!deleteId) {
           return res.status(400).json({ 
             success: false, 
-            error: 'ไม่พบ ID ของงานซ่อม' 
+            error: 'กรุณาระบุ ID ของงานซ่อมที่ต้องการลบ' 
           });
         }
 
-        // TODO: Delete from database
+        // Check if repair exists
+        const repairToDelete = await pool.query(
+          'SELECT id FROM repairs WHERE id = $1',
+          [deleteId]
+        );
+
+        if (repairToDelete.rows.length === 0) {
+          return res.status(404).json({
+            success: false,
+            error: 'ไม่พบงานซ่อมที่ต้องการลบ'
+          });
+        }
+
+        // Check if repair has feedback
+        const feedbackCheck = await pool.query(
+          'SELECT COUNT(*) as count FROM repair_feedback WHERE repair_id = $1',
+          [deleteId]
+        );
+
+        if (parseInt(feedbackCheck.rows[0].count) > 0) {
+          return res.status(400).json({
+            success: false,
+            error: 'ไม่สามารถลบงานซ่อมที่มีการประเมินผลได้'
+          });
+        }
+
+        await pool.query('DELETE FROM repairs WHERE id = $1', [deleteId]);
+        
         res.status(200).json({ 
           success: true, 
           message: 'ลบงานซ่อมสำเร็จ' 
         });
-      } catch (error) {
-        res.status(500).json({ success: false, error: error.message });
-      }
-      break;
+        break;
 
-    default:
-      res.setHeader('Allow', ['GET', 'POST', 'PUT', 'DELETE']);
-      res.status(405).end(`Method ${method} Not Allowed`);
+      default:
+        res.setHeader('Allow', ['GET', 'POST', 'PUT', 'DELETE']);
+        res.status(405).json({ success: false, error: `Method ${method} Not Allowed` });
+    }
+
+  } catch (error) {
+    console.error('Repairs API Error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 }
-

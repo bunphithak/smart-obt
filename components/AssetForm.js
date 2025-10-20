@@ -234,19 +234,19 @@ export default function AssetForm({ asset, villages, categories = [], onSubmit, 
         />
       </div>
 
-      <div className="flex space-x-3 pt-4">
-        <button
-          type="submit"
-          className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          {asset ? 'บันทึกการแก้ไข' : 'เพิ่มทรัพย์สิน'}
-        </button>
+      <div className="flex justify-end space-x-3 pt-4">
         <button
           type="button"
           onClick={onCancel}
-          className="flex-1 bg-gray-200 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400"
+          className="px-6 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400 transition-colors"
         >
           ยกเลิก
+        </button>
+        <button
+          type="submit"
+          className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors shadow-md hover:shadow-lg"
+        >
+          {asset ? 'บันทึกการแก้ไข' : 'เพิ่มทรัพย์สิน'}
         </button>
       </div>
 

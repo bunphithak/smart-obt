@@ -1,12 +1,18 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import RepairTable from '../../components/RepairTable';
+import AlertModal from '../../components/AlertModal';
+import ConfirmModal from '../../components/ConfirmModal';
+import CreateRepairModal from '../../components/CreateRepairModal';
 
 export default function RepairsPage() {
   const router = useRouter();
   const [repairs, setRepairs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState({ status: '', assignedTo: '' });
+  const [alertModal, setAlertModal] = useState({ isOpen: false, message: '', type: 'success' });
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, message: '', onConfirm: null });
+  const [showCreateRepairModal, setShowCreateRepairModal] = useState(false);
 
   useEffect(() => {
     fetchRepairs();
@@ -31,21 +37,37 @@ export default function RepairsPage() {
   };
 
   const handleDelete = async (repair) => {
-    if (!confirm(`ต้องการลบงานซ่อม "${repair.title}" ใช่หรือไม่?`)) return;
+    setConfirmModal({
+      isOpen: true,
+      message: `ต้องการลบงานซ่อม "${repair.title}" ใช่หรือไม่?`,
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`/api/repairs?id=${repair.id}`, { method: 'DELETE' });
+          const result = await res.json();
 
-    try {
-      const res = await fetch(`/api/repairs?id=${repair.id}`, { method: 'DELETE' });
-      const result = await res.json();
-
-      if (result.success) {
-        alert('ลบสำเร็จ');
-        fetchRepairs();
-      } else {
-        alert('เกิดข้อผิดพลาด: ' + result.error);
+          if (result.success) {
+            setAlertModal({
+              isOpen: true,
+              message: 'ลบงานซ่อมสำเร็จ',
+              type: 'success'
+            });
+            fetchRepairs();
+          } else {
+            setAlertModal({
+              isOpen: true,
+              message: 'เกิดข้อผิดพลาด: ' + result.error,
+              type: 'error'
+            });
+          }
+        } catch (error) {
+          setAlertModal({
+            isOpen: true,
+            message: 'ไม่สามารถลบได้ กรุณาลองใหม่อีกครั้ง',
+            type: 'error'
+          });
+        }
       }
-    } catch (error) {
-      alert('ไม่สามารถลบได้');
-    }
+    });
   };
 
   const handleViewDetails = (repair) => {
@@ -74,13 +96,24 @@ export default function RepairsPage() {
   return (
     <div className="p-4 md:p-6 2xl:p-10">
       {/* Page Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mb-1">
-          จัดการงานซ่อม
-        </h1>
-        <p className="text-gray-500 dark:text-gray-400 text-sm">
-          ติดตามและจัดการงานซ่อมบำรุงทั้งหมด
-        </p>
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mb-1">
+            จัดการงานซ่อม
+          </h1>
+          <p className="text-gray-500 dark:text-gray-400 text-sm">
+            ติดตามและจัดการงานซ่อมบำรุงทั้งหมด
+          </p>
+        </div>
+        <button
+          onClick={() => setShowCreateRepairModal(true)}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center space-x-2"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+          </svg>
+          <span>สร้างงานซ่อม</span>
+        </button>
       </div>
 
       {/* Filters */}
@@ -145,6 +178,36 @@ export default function RepairsPage() {
           onViewDetails={handleViewDetails}
         />
       </div>
+
+      {/* Alert Modal */}
+      <AlertModal
+        isOpen={alertModal.isOpen}
+        onClose={() => setAlertModal({ ...alertModal, isOpen: false })}
+        title={alertModal.type === 'success' ? 'สำเร็จ' : 'เกิดข้อผิดพลาด'}
+        message={alertModal.message}
+        type={alertModal.type}
+      />
+
+      {/* Confirm Modal */}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+        onConfirm={confirmModal.onConfirm}
+        title="ยืนยันการลบ"
+        message={confirmModal.message}
+        confirmText="ลบ"
+        cancelText="ยกเลิก"
+        type="danger"
+      />
+
+      {/* Create Repair Modal */}
+      <CreateRepairModal
+        isOpen={showCreateRepairModal}
+        onClose={() => setShowCreateRepairModal(false)}
+        onSuccess={() => {
+          fetchRepairs();
+        }}
+      />
     </div>
   );
 }

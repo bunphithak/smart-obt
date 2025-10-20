@@ -553,11 +553,17 @@ export default function AssetsPage() {
       return;
     }
 
-    // Show confirmation modal instead of confirm dialog
-    const confirmed = window.confirm(`ต้องการพิมพ์ QR Code ทั้งหมด ${filteredAssets.length} รายการใช่หรือไม่?`);
-    if (!confirmed) {
-      return;
-    }
+    // Show confirmation modal
+    setConfirmData({
+      message: `ต้องการพิมพ์ QR Code ทั้งหมด ${filteredAssets.length} รายการใช่หรือไม่?`,
+      onConfirm: async () => {
+        await executePrintAllQRCodes();
+      }
+    });
+    setShowConfirmModal(true);
+  };
+
+  const executePrintAllQRCodes = async () => {
 
     try {
       // Generate QR codes for all filtered assets using QRCode library directly

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+import AlertModal from './AlertModal';
 
 // Fix Leaflet default marker icon issue in Next.js
 delete L.Icon.Default.prototype._getIconUrl;
@@ -44,6 +45,7 @@ export default function MapPicker({ initialLat, initialLng, onLocationSelect }) 
   const [showResults, setShowResults] = useState(false);
   const [mapZoom, setMapZoom] = useState(15);
   const searchTimeoutRef = useRef(null);
+  const [alertModal, setAlertModal] = useState({ isOpen: false, message: '', type: 'error' });
 
   useEffect(() => {
     setMounted(true);
@@ -126,11 +128,19 @@ export default function MapPicker({ initialLat, initialLng, onLocationSelect }) 
           setPosition([pos.coords.latitude, pos.coords.longitude]);
         },
         (error) => {
-          alert('ไม่สามารถเข้าถึงตำแหน่งปัจจุบันได้: ' + error.message);
+          setAlertModal({
+            isOpen: true,
+            message: 'ไม่สามารถเข้าถึงตำแหน่งปัจจุบันได้: ' + error.message,
+            type: 'error'
+          });
         }
       );
     } else {
-      alert('เบราว์เซอร์ไม่รองรับการระบุตำแหน่ง');
+      setAlertModal({
+        isOpen: true,
+        message: 'เบราว์เซอร์ไม่รองรับการระบุตำแหน่ง',
+        type: 'warning'
+      });
     }
   };
 
@@ -251,6 +261,15 @@ export default function MapPicker({ initialLat, initialLng, onLocationSelect }) 
           ยืนยันตำแหน่ง
         </button>
       </div>
+
+      {/* Alert Modal */}
+      <AlertModal
+        isOpen={alertModal.isOpen}
+        onClose={() => setAlertModal({ ...alertModal, isOpen: false })}
+        title={alertModal.type === 'error' ? 'เกิดข้อผิดพลาด' : 'แจ้งเตือน'}
+        message={alertModal.message}
+        type={alertModal.type}
+      />
     </div>
   );
 }

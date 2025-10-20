@@ -25,12 +25,10 @@ export default function TrackSearch() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
-                <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center">
-                  <span className="text-2xl">🏛️</span>
-                </div>
+                <img src="/images/abt-logo.png" alt="โลโก้ อบต.ละหาร" className="w-12 h-12" />
                 <div>
-                  <h1 className="text-xl font-bold text-gray-900">OBT Smart System</h1>
-                  <p className="text-sm text-gray-600">ตรวจสอบสถานะ</p>
+                  <h1 className="text-xl font-bold text-gray-900">Smart OBT</h1>
+                  <p className="text-sm text-gray-600">อบต.ละหาร - ติดตามสถานะ</p>
                 </div>
               </div>
               <button

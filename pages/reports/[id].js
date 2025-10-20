@@ -14,7 +14,8 @@ export default function ReportDetailPage() {
   const [updateData, setUpdateData] = useState({
     status: '',
     priority: '',
-    note: ''
+    note: '',
+    rejectionReason: ''
   });
   const [showAlertModal, setShowAlertModal] = useState(false);
   const [alertData, setAlertData] = useState({ type: 'info', title: '', message: '' });
@@ -27,12 +28,35 @@ export default function ReportDetailPage() {
     try {
       const res = await fetch(`/api/reports?id=${id}`);
       const data = await res.json();
-      if (data.success && data.data.length > 0) {
-        setReport(data.data[0]);
+      console.log('API Response:', data);
+      
+      if (data.success && data.data) {
+        // Handle both single object and array response
+        const reportData = Array.isArray(data.data) ? data.data[0] : data.data;
+        
+        // Parse JSON fields if they are strings
+        if (typeof reportData.images === 'string') {
+          try {
+            reportData.images = JSON.parse(reportData.images);
+          } catch (e) {
+            reportData.images = [];
+          }
+        }
+        
+        if (typeof reportData.location === 'string') {
+          try {
+            reportData.location = JSON.parse(reportData.location);
+          } catch (e) {
+            // Keep as string if not valid JSON
+          }
+        }
+        
+        setReport(reportData);
         setUpdateData({
-          status: data.data[0].status,
-          priority: data.data[0].priority,
-          note: ''
+          status: reportData.status,
+          priority: reportData.priority,
+          note: '',
+          rejectionReason: ''
         });
       }
       setLoading(false);
@@ -66,7 +90,8 @@ export default function ReportDetailPage() {
           id: report.id,
           status: updateData.status,
           priority: updateData.priority,
-          note: updateData.note
+          note: updateData.note,
+          rejectionReason: updateData.rejectionReason
         })
       });
 
@@ -84,6 +109,11 @@ export default function ReportDetailPage() {
     }
   };
 
+  const assignToTechnician = () => {
+    // Navigate to repairs page to create repair job
+    router.push(`/repairs/new?reportId=${report.id}`);
+  };
+
   const createRepair = () => {
     router.push(`/repairs/new?reportId=${report.id}`);
   };
@@ -91,9 +121,8 @@ export default function ReportDetailPage() {
   const getStatusColor = (status) => {
     switch (status) {
       case 'รอดำเนินการ': return 'bg-yellow-100 text-yellow-800';
-      case 'กำลังดำเนินการ': return 'bg-blue-100 text-blue-800';
-      case 'เสร็จสิ้น': return 'bg-green-100 text-green-800';
-      case 'ยกเลิก': return 'bg-red-100 text-red-800';
+      case 'อนุมัติ': return 'bg-green-100 text-green-800';
+      case 'ไม่อนุมัติ': return 'bg-red-100 text-red-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
@@ -323,14 +352,6 @@ export default function ReportDetailPage() {
                 >
                   อัปเดตสถานะ
                 </button>
-                {report.status === 'รอดำเนินการ' && (
-                  <button
-                    onClick={createRepair}
-                    className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-                  >
-                    สร้างงานซ่อม
-                  </button>
-                )}
               </div>
             </div>
           </div>
@@ -356,7 +377,7 @@ export default function ReportDetailPage() {
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      สถานะ
+                      สถานะการอนุมัติ
                     </label>
                     <select
                       value={updateData.status}
@@ -364,9 +385,8 @@ export default function ReportDetailPage() {
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="รอดำเนินการ">รอดำเนินการ</option>
-                      <option value="กำลังดำเนินการ">กำลังดำเนินการ</option>
-                      <option value="เสร็จสิ้น">เสร็จสิ้น</option>
-                      <option value="ยกเลิก">ยกเลิก</option>
+                      <option value="อนุมัติ">อนุมัติ</option>
+                      <option value="ไม่อนุมัติ">ไม่อนุมัติ</option>
                     </select>
                   </div>
 
@@ -398,20 +418,35 @@ export default function ReportDetailPage() {
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
+
+                  {updateData.status === 'ไม่อนุมัติ' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        สาเหตุการไม่อนุมัติ (ไม่บังคับ)
+                      </label>
+                      <textarea
+                        value={updateData.rejectionReason}
+                        onChange={(e) => setUpdateData({ ...updateData, rejectionReason: e.target.value })}
+                        rows={3}
+                        placeholder="ระบุสาเหตุที่ไม่อนุมัติ..."
+                        className="w-full px-4 py-2 border border-red-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                      />
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex gap-3 mt-6">
-                  <button
-                    onClick={handleUpdateStatus}
-                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                  >
-                    บันทึก
-                  </button>
                   <button
                     onClick={() => setShowUpdateModal(false)}
                     className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
                   >
                     ยกเลิก
+                  </button>
+                  <button
+                    onClick={handleUpdateStatus}
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  >
+                    บันทึก
                   </button>
                 </div>
               </div>

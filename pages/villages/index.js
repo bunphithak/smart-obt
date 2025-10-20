@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import ConfirmModal from '../../components/ConfirmModal';
 import AlertModal from '../../components/AlertModal';
+import { useAuth } from '../../contexts/AuthContext';
 
 export default function VillagesPage() {
+  const { apiCall } = useAuth();
   const [villages, setVillages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -21,10 +23,13 @@ export default function VillagesPage() {
   const [alertData, setAlertData] = useState({ type: 'success', title: '', message: '' }); // แสดง 12 รายการต่อหน้า
   const [formData, setFormData] = useState({
     name: '',
-    code: '',
-    address: '',
-    contactPerson: '',
-    contactPhone: ''
+    villageCode: '',
+    villageNumber: '',
+    subdistrict: 'ละหาร',
+    district: 'ปลวกแดง',
+    province: 'ระยอง',
+    postalCode: '21140',
+    description: ''
   });
 
   useEffect(() => {
@@ -55,12 +60,30 @@ export default function VillagesPage() {
 
     try {
       const method = editingVillage ? 'PUT' : 'POST';
-      const data = editingVillage ? { ...formData, id: editingVillage.id } : formData;
+      
+      // Prepare data with location as JSONB
+      const payload = {
+        name: formData.name,
+        villageCode: formData.villageCode,
+        description: formData.description || `หมู่ ${formData.villageNumber} ${formData.name}`,
+        location: {
+          villageNumber: formData.villageNumber,
+          villageName: formData.name,
+          subdistrict: formData.subdistrict,
+          district: formData.district,
+          province: formData.province,
+          postalCode: formData.postalCode
+        },
+        isActive: true
+      };
 
-      const res = await fetch('/api/villages', {
+      if (editingVillage) {
+        payload.id = editingVillage.id;
+      }
+
+      const res = await apiCall('/api/villages', {
         method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
+        body: JSON.stringify(payload)
       });
 
       const result = await res.json();
@@ -69,7 +92,16 @@ export default function VillagesPage() {
         showAlert('สำเร็จ', editingVillage ? 'แก้ไขหมู่บ้านสำเร็จ' : 'เพิ่มหมู่บ้านสำเร็จ', 'success');
         setShowForm(false);
         setEditingVillage(null);
-        setFormData({ name: '', code: '', address: '', contactPerson: '', contactPhone: '' });
+        setFormData({
+          name: '',
+          villageCode: '',
+          villageNumber: '',
+          subdistrict: 'ละหาร',
+          district: 'ปลวกแดง',
+          province: 'ระยอง',
+          postalCode: '21140',
+          description: ''
+        });
         fetchVillages();
       } else {
         showAlert('ข้อผิดพลาด', result.error, 'error');
@@ -84,10 +116,13 @@ export default function VillagesPage() {
     setEditingVillage(village);
     setFormData({
       name: village.name,
-      code: village.code,
-      address: village.address || '',
-      contactPerson: village.contactPerson || '',
-      contactPhone: village.contactPhone || ''
+      villageCode: village.villageCode || '',
+      villageNumber: village.location?.villageNumber || '',
+      subdistrict: village.location?.subdistrict || 'ละหาร',
+      district: village.location?.district || 'ปลวกแดง',
+      province: village.location?.province || 'ระยอง',
+      postalCode: village.location?.postalCode || '21140',
+      description: village.description || ''
     });
     setShowForm(true);
   };
@@ -101,7 +136,7 @@ export default function VillagesPage() {
     if (!villageToDelete) return;
 
     try {
-      const res = await fetch(`/api/villages?id=${villageToDelete.id}`, { method: 'DELETE' });
+      const res = await apiCall(`/api/villages?id=${villageToDelete.id}`, { method: 'DELETE' });
       const result = await res.json();
 
       setShowConfirmModal(false);
@@ -188,7 +223,16 @@ export default function VillagesPage() {
           <button
             onClick={() => {
               setEditingVillage(null);
-              setFormData({ name: '', code: '', address: '', contactPerson: '', contactPhone: '' });
+              setFormData({
+                name: '',
+                villageCode: '',
+                villageNumber: '',
+                subdistrict: 'ละหาร',
+                district: 'ปลวกแดง',
+                province: 'ระยอง',
+                postalCode: '21140',
+                description: ''
+              });
               setShowForm(true);
             }}
             className="mt-3 sm:mt-0 inline-flex items-center px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
@@ -209,7 +253,9 @@ export default function VillagesPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-lg font-semibold">{village.name}</h3>
-                  <p className="text-sm text-blue-100">รหัส: {village.code}</p>
+                  <p className="text-sm text-blue-100">
+                    รหัส: {village.villageCode || village.code || '-'}
+                  </p>
                 </div>
                 <div className="text-2xl">🏘️</div>
               </div>
@@ -217,19 +263,26 @@ export default function VillagesPage() {
 
             <div className="p-4 space-y-3">
               <div>
-                <p className="text-xs text-gray-500">ที่อยู่</p>
-                <p className="text-sm text-gray-700">{village.address || '-'}</p>
+                <p className="text-xs text-gray-500">หมู่ที่</p>
+                <p className="text-sm text-gray-700 font-medium">
+                  {village.location?.villageNumber || '-'}
+                </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-xs text-gray-500">ผู้ติดต่อ</p>
-                  <p className="text-sm text-gray-700">{village.contactPerson || '-'}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500">เบอร์โทร</p>
-                  <p className="text-sm text-gray-700">{village.contactPhone || '-'}</p>
-                </div>
+              <div>
+                <p className="text-xs text-gray-500">ที่อยู่</p>
+                <p className="text-sm text-gray-700">
+                  {village.location ? (
+                    <>
+                      ตำบล{village.location.subdistrict} <br/>
+                      อำเภอ{village.location.district} <br/>
+                      จังหวัด{village.location.province}
+                      {village.location.postalCode && ` ${village.location.postalCode}`}
+                    </>
+                  ) : (
+                    village.description || '-'
+                  )}
+                </p>
               </div>
 
               <div className="bg-gray-50 rounded-lg p-3">
@@ -283,19 +336,36 @@ export default function VillagesPage() {
               </h2>
               
               <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    ชื่อหมู่บ้าน <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleChange}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="เช่น หมู่ 1 บ้านตัวอย่าง"
-                  />
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      ชื่อหมู่บ้าน <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="name"
+                      value={formData.name}
+                      onChange={handleChange}
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="เช่น บ้านปากแพรก"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      หมู่ที่ <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="villageNumber"
+                      value={formData.villageNumber}
+                      onChange={handleChange}
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="เช่น 1"
+                    />
+                  </div>
                 </div>
 
                 <div>
@@ -304,76 +374,106 @@ export default function VillagesPage() {
                   </label>
                   <input
                     type="text"
-                    name="code"
-                    value={formData.code}
+                    name="villageCode"
+                    value={formData.villageCode}
                     onChange={handleChange}
                     required
                     disabled={!!editingVillage}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
-                    placeholder="เช่น V001"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    ที่อยู่
-                  </label>
-                  <textarea
-                    name="address"
-                    value={formData.address}
-                    onChange={handleChange}
-                    rows="2"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="ที่อยู่หมู่บ้าน"
+                    placeholder="เช่น VLG-001"
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      ผู้ติดต่อ
+                      ตำบล <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
-                      name="contactPerson"
-                      value={formData.contactPerson}
+                      name="subdistrict"
+                      value={formData.subdistrict}
                       onChange={handleChange}
+                      required
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="นายกำนัน / ผู้ใหญ่บ้าน"
                     />
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      เบอร์โทรศัพท์
+                      อำเภอ <span className="text-red-500">*</span>
                     </label>
                     <input
-                      type="tel"
-                      name="contactPhone"
-                      value={formData.contactPhone}
+                      type="text"
+                      name="district"
+                      value={formData.district}
                       onChange={handleChange}
+                      required
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="08X-XXX-XXXX"
                     />
                   </div>
                 </div>
 
-                <div className="flex space-x-3 pt-4">
-                  <button
-                    type="submit"
-                    className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
-                  >
-                    {editingVillage ? 'บันทึกการแก้ไข' : 'เพิ่มหมู่บ้าน'}
-                  </button>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      จังหวัด <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="province"
+                      value={formData.province}
+                      onChange={handleChange}
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      รหัสไปรษณีย์
+                    </label>
+                    <input
+                      type="text"
+                      name="postalCode"
+                      value={formData.postalCode}
+                      onChange={handleChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="21140"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    คำอธิบาย
+                  </label>
+                  <textarea
+                    name="description"
+                    value={formData.description}
+                    onChange={handleChange}
+                    rows="2"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="คำอธิบายเพิ่มเติม"
+                  />
+                </div>
+
+                <div className="flex justify-end space-x-3 pt-4">
                   <button
                     type="button"
                     onClick={() => {
                       setShowForm(false);
                       setEditingVillage(null);
                     }}
-                    className="flex-1 bg-gray-200 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-300"
+                    className="px-6 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
                   >
                     ยกเลิก
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                  >
+                    {editingVillage ? 'บันทึกการแก้ไข' : 'เพิ่มหมู่บ้าน'}
                   </button>
                 </div>
               </form>

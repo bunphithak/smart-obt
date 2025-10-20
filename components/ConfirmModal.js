@@ -1,3 +1,6 @@
+// Modern Confirm Modal Component
+import { useEffect } from 'react';
+
 export default function ConfirmModal({ 
   isOpen, 
   onClose, 
@@ -8,6 +11,25 @@ export default function ConfirmModal({
   cancelText = 'ยกเลิก',
   type = 'danger' // 'danger' or 'warning' or 'info'
 }) {
+  // Close on ESC key
+  useEffect(() => {
+    const handleEsc = (e) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    
+    if (isOpen) {
+      window.addEventListener('keydown', handleEsc);
+      document.body.style.overflow = 'hidden';
+    }
+    
+    return () => {
+      window.removeEventListener('keydown', handleEsc);
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const getTypeStyles = () => {
@@ -15,29 +37,32 @@ export default function ConfirmModal({
       case 'danger':
         return {
           icon: (
-            <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-7 h-7 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
           ),
-          buttonClass: 'bg-red-600 hover:bg-red-700 text-white'
+          bgColor: 'bg-red-100',
+          buttonClass: 'bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800'
         };
       case 'warning':
         return {
           icon: (
-            <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-7 h-7 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
           ),
-          buttonClass: 'bg-yellow-600 hover:bg-yellow-700 text-white'
+          bgColor: 'bg-yellow-100',
+          buttonClass: 'bg-gradient-to-r from-yellow-600 to-yellow-700 hover:from-yellow-700 hover:to-yellow-800'
         };
-      default:
+      default: // info
         return {
           icon: (
-            <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-7 h-7 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           ),
-          buttonClass: 'bg-blue-600 hover:bg-blue-700 text-white'
+          bgColor: 'bg-blue-100',
+          buttonClass: 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800'
         };
     }
   };
@@ -45,40 +70,49 @@ export default function ConfirmModal({
   const styles = getTypeStyles();
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
-        <div className="p-6">
-          <div className="flex items-start">
-            <div className="flex-shrink-0">
-              {styles.icon}
-            </div>
-            <div className="ml-4 flex-1">
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
-                {title}
-              </h3>
-              <p className="text-sm text-gray-500">
-                {message}
-              </p>
-            </div>
-          </div>
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+      {/* Backdrop */}
+      <div 
+        className="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity"
+        onClick={onClose}
+      />
+      
+      {/* Modal */}
+      <div className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 transform transition-all animate-in fade-in zoom-in duration-200">
+        {/* Icon */}
+        <div className={`w-14 h-14 ${styles.bgColor} rounded-full flex items-center justify-center mx-auto mb-4`}>
+          {styles.icon}
+        </div>
 
-          <div className="mt-6 flex space-x-3">
-            <button
-              onClick={onConfirm}
-              className={`flex-1 px-4 py-2 rounded-md transition-colors ${styles.buttonClass}`}
-            >
-              {confirmText}
-            </button>
-            <button
-              onClick={onClose}
-              className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors"
-            >
-              {cancelText}
-            </button>
-          </div>
+        {/* Content */}
+        <div className="text-center mb-6">
+          <h3 className="text-xl font-bold text-gray-900 mb-2">
+            {title}
+          </h3>
+          <p className="text-gray-600">
+            {message}
+          </p>
+        </div>
+
+        {/* Actions */}
+        <div className="flex justify-end gap-3">
+          <button
+            onClick={onClose}
+            className="px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-lg transition-colors"
+          >
+            {cancelText}
+          </button>
+          <button
+            onClick={() => {
+              onConfirm();
+              onClose();
+            }}
+            className={`px-6 py-3 ${styles.buttonClass} text-white font-medium rounded-lg shadow-lg hover:shadow-xl transition-all`}
+          >
+            {confirmText}
+          </button>
         </div>
       </div>
     </div>
   );
 }
-

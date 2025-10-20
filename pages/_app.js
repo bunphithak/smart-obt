@@ -2,13 +2,24 @@ import '../styles/globals.css';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
+import { AuthProvider, useAuth } from '../contexts/AuthContext';
+import LogoutModal from '../components/LogoutModal';
 
 function MyApp({ Component, pageProps }) {
+  return (
+    <AuthProvider>
+      <AppContent Component={Component} pageProps={pageProps} />
+    </AuthProvider>
+  );
+}
+
+function AppContent({ Component, pageProps }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isClient, setIsClient] = useState(false);
-  const [currentUser, setCurrentUser] = useState(null);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
   const router = useRouter();
+  const { user: currentUser, logout: handleLogout, loading: authLoading } = useAuth();
 
   // Define public pages that should not show admin layout
   // /report/[assetCode] = public page for citizens to report issues
@@ -25,14 +36,6 @@ function MyApp({ Component, pageProps }) {
   
   useEffect(() => {
     setIsClient(true);
-    
-    // Check authentication for admin pages
-    if (typeof window !== 'undefined') {
-      const userStr = localStorage.getItem('adminUser');
-      if (userStr) {
-        setCurrentUser(JSON.parse(userStr));
-      }
-    }
   }, []);
 
   // Close dropdown when clicking outside
@@ -136,18 +139,39 @@ function MyApp({ Component, pageProps }) {
     return null;
   }
 
+  // Show loading while checking authentication
+  if (authLoading && !isPublicPage && router.pathname !== '/admin/login') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">กำลังโหลด...</p>
+        </div>
+      </div>
+    );
+  }
+
   // Check authentication for admin pages (except login page)
-  if (!isPublicPage && router.pathname !== '/admin/login' && !currentUser) {
+  if (!isPublicPage && router.pathname !== '/admin/login' && !currentUser && !authLoading) {
     if (isClient) {
       router.push('/admin/login');
     }
     return null;
   }
 
-  const handleLogout = () => {
-    localStorage.removeItem('adminUser');
+  // Logout handlers
+  const handleLogoutClick = () => {
+    setShowLogoutModal(true);
     setShowUserMenu(false);
-    router.push('/admin/login');
+  };
+
+  const confirmLogout = () => {
+    setShowLogoutModal(false);
+    handleLogout();
+  };
+
+  const cancelLogout = () => {
+    setShowLogoutModal(false);
   };
 
   // Admin layout for all other pages
@@ -168,12 +192,10 @@ function MyApp({ Component, pageProps }) {
             </button>
             
             <Link href="/" className="flex items-center gap-3">
-              <div className="flex items-center justify-center w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl">
-                <span className="text-xl">🏛️</span>
-              </div>
+              <img src="/images/abt-logo.png" alt="โลโก้ อบต.ละหาร" className="w-10 h-10" />
               <div className="hidden sm:block">
                 <h1 className="text-lg font-bold text-gray-800 dark:text-white">Smart OBT</h1>
-                <p className="text-xs text-gray-500 dark:text-gray-400">ระบบจัดการทรัพย์สิน</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">อบต.ละหาร อ.ปลวกแดง จ.ระยอง</p>
               </div>
             </Link>
           </div>
@@ -217,7 +239,7 @@ function MyApp({ Component, pageProps }) {
                     
                     {/* Menu Items */}
                     <button
-                      onClick={handleLogout}
+                      onClick={handleLogoutClick}
                       className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -266,6 +288,13 @@ function MyApp({ Component, pageProps }) {
           </div>
         </main>
       </div>
+
+      {/* Logout Modal */}
+      <LogoutModal 
+        isOpen={showLogoutModal}
+        onConfirm={confirmLogout}
+        onCancel={cancelLogout}
+      />
     </div>
   );
 }

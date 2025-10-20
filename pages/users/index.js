@@ -1,13 +1,20 @@
 import { useState, useEffect } from 'react';
 import UserForm from '../../components/UserForm';
+import AlertModal from '../../components/AlertModal';
+import ConfirmModal from '../../components/ConfirmModal';
+import { useAuth } from '../../contexts/AuthContext';
 
 export default function UsersPage() {
+  const { apiCall } = useAuth();
   const [users, setUsers] = useState([]);
   const [villages, setVillages] = useState([]);
+  const [roles, setRoles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
   const [filter, setFilter] = useState({ role: '', status: '' });
+  const [alertModal, setAlertModal] = useState({ isOpen: false, message: '', type: 'success' });
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, message: '', onConfirm: null });
 
   useEffect(() => {
     fetchData();
@@ -15,16 +22,24 @@ export default function UsersPage() {
 
   const fetchData = async () => {
     try {
-      const [usersRes, villagesRes] = await Promise.all([
-        fetch('/api/users'),
-        fetch('/api/villages')
+      const [usersRes, villagesRes, rolesRes] = await Promise.all([
+        apiCall('/api/users'),
+        fetch('/api/villages'), // Villages is public
+        fetch('/api/roles') // Roles is public
       ]);
 
       const usersData = await usersRes.json();
       const villagesData = await villagesRes.json();
+      const rolesData = await rolesRes.json();
+
+      console.log('Roles data:', rolesData);
 
       if (usersData.success) setUsers(usersData.data);
       if (villagesData.success) setVillages(villagesData.data);
+      if (rolesData.success) {
+        console.log('Setting roles:', rolesData.data);
+        setRoles(rolesData.data);
+      }
       
       setLoading(false);
     } catch (fetchError) {
@@ -38,44 +53,71 @@ export default function UsersPage() {
       const method = editingUser ? 'PUT' : 'POST';
       const data = editingUser ? { ...formData, id: editingUser.id } : formData;
 
-      const res = await fetch('/api/users', {
+      const res = await apiCall('/api/users', {
         method,
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
       });
 
       const result = await res.json();
 
       if (result.success) {
-        alert(editingUser ? 'แก้ไขสำเร็จ' : 'เพิ่มผู้ใช้สำเร็จ');
+        setAlertModal({
+          isOpen: true,
+          message: editingUser ? 'แก้ไขข้อมูลผู้ใช้สำเร็จ' : 'เพิ่มผู้ใช้สำเร็จ',
+          type: 'success'
+        });
         setShowForm(false);
         setEditingUser(null);
         fetchData();
       } else {
-        alert('เกิดข้อผิดพลาด: ' + result.error);
+        setAlertModal({
+          isOpen: true,
+          message: 'เกิดข้อผิดพลาด: ' + result.error,
+          type: 'error'
+        });
       }
     } catch (error) {
-      alert('ไม่สามารถบันทึกได้');
+      setAlertModal({
+        isOpen: true,
+        message: 'ไม่สามารถบันทึกได้ กรุณาลองใหม่อีกครั้ง',
+        type: 'error'
+      });
       console.error(error);
     }
   };
 
   const handleDelete = async (user) => {
-    if (!confirm(`ต้องการลบผู้ใช้ "${user.fullName}" ใช่หรือไม่?`)) return;
+    setConfirmModal({
+      isOpen: true,
+      message: `ต้องการลบผู้ใช้ "${user.fullName}" ออกจากระบบใช่หรือไม่? สามารถกู้คืนได้ในภายหลัง`,
+      onConfirm: async () => {
+        try {
+          const res = await apiCall(`/api/users?id=${user.id}`, { method: 'DELETE' });
+          const result = await res.json();
 
-    try {
-      const res = await fetch(`/api/users?id=${user.id}`, { method: 'DELETE' });
-      const result = await res.json();
-
-      if (result.success) {
-        alert('ลบสำเร็จ');
-        fetchData();
-      } else {
-        alert('เกิดข้อผิดพลาด: ' + result.error);
+          if (result.success) {
+            setAlertModal({
+              isOpen: true,
+              message: 'ลบผู้ใช้ออกจากระบบสำเร็จ',
+              type: 'success'
+            });
+            fetchData();
+          } else {
+            setAlertModal({
+              isOpen: true,
+              message: 'เกิดข้อผิดพลาด: ' + result.error,
+              type: 'error'
+            });
+          }
+        } catch (error) {
+          setAlertModal({
+            isOpen: true,
+            message: 'ไม่สามารถลบได้ กรุณาลองใหม่อีกครั้ง',
+            type: 'error'
+          });
+        }
       }
-    } catch (error) {
-      alert('ไม่สามารถลบได้');
-    }
+    });
   };
 
   const getRoleBadge = (role) => {
@@ -95,14 +137,20 @@ export default function UsersPage() {
     switch (role) {
       case 'admin': return 'ผู้ดูแลระบบ';
       case 'technician': return 'ช่างซ่อม';
-      case 'user': return 'ผู้ใช้งาน';
       default: return role;
     }
   };
 
   const filteredUsers = users.filter(user => {
-    if (filter.role && user.role !== filter.role) return false;
-    if (filter.status && user.status !== filter.status) return false;
+    if (filter.role && !user.roles.some(role => role.name === filter.role)) return false;
+    
+    // Handle status filter
+    if (filter.status) {
+      const isActive = user.isActive;
+      if (filter.status === 'active' && !isActive) return false;
+      if (filter.status === 'inactive' && isActive) return false;
+    }
+    
     return true;
   });
 
@@ -154,9 +202,11 @@ export default function UsersPage() {
             className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="">ทุกบทบาท</option>
-            <option value="admin">ผู้ดูแลระบบ</option>
-            <option value="technician">ช่างซ่อม</option>
-            <option value="user">ผู้ใช้งาน</option>
+            {roles && roles.map(role => (
+              <option key={role.id} value={role.name}>
+                {role.displayName}
+              </option>
+            ))}
           </select>
           <select
             value={filter.status}
@@ -171,7 +221,7 @@ export default function UsersPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:gap-6 xl:grid-cols-4 mb-6">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:gap-6 xl:grid-cols-3 mb-6">
         <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
           <p className="text-sm text-gray-500 dark:text-gray-400">ทั้งหมด</p>
           <p className="mt-2 text-2xl font-bold text-gray-800 dark:text-white/90">{users.length}</p>
@@ -188,12 +238,6 @@ export default function UsersPage() {
             {users.filter(u => u.role === 'technician').length}
           </p>
         </div>
-        <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
-          <p className="text-sm text-gray-500 dark:text-gray-400">ผู้ใช้งาน</p>
-          <p className="mt-2 text-2xl font-bold text-green-600 dark:text-green-400">
-            {users.filter(u => u.role === 'user').length}
-          </p>
-        </div>
       </div>
 
       {/* Users Table */}
@@ -206,6 +250,7 @@ export default function UsersPage() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ชื่อ-นามสกุล</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">อีเมล</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">บทบาท</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">หมู่บ้าน</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">สถานะ</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">จัดการ</th>
               </tr>
@@ -217,17 +262,31 @@ export default function UsersPage() {
                   <td className="px-6 py-4 text-sm">{user.fullName}</td>
                   <td className="px-6 py-4 text-sm">{user.email}</td>
                   <td className="px-6 py-4 text-sm">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getRoleBadge(user.role)}`}>
-                      {getRoleText(user.role)}
-                    </span>
+                    <div className="flex flex-wrap gap-1">
+                      {user.roles && user.roles.map((role, index) => (
+                        <span 
+                          key={role.id} 
+                          className={`px-2 py-1 rounded-full text-xs font-medium ${getRoleBadge(role.name)}`}
+                        >
+                          {getRoleText(role.name)}
+                        </span>
+                      ))}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 text-sm">
+                    {user.villageId ? (
+                      villages.find(v => v.id === user.villageId)?.name || 'ไม่ระบุ'
+                    ) : (
+                      <span className="text-gray-400">-</span>
+                    )}
                   </td>
                   <td className="px-6 py-4 text-sm">
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      user.status === 'active' 
+                      user.isActive 
                         ? 'bg-green-100 text-green-800' 
                         : 'bg-red-100 text-red-800'
                     }`}>
-                      {user.status === 'active' ? 'ใช้งาน' : 'ปิดการใช้งาน'}
+                      {user.isActive ? 'ใช้งาน' : 'ปิดการใช้งาน'}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-sm">
@@ -279,6 +338,7 @@ export default function UsersPage() {
               <UserForm
                 user={editingUser}
                 villages={villages}
+                roles={roles}
                 onSubmit={handleSubmit}
                 onCancel={() => {
                   setShowForm(false);
@@ -289,6 +349,27 @@ export default function UsersPage() {
           </div>
         </div>
       )}
+
+      {/* Alert Modal */}
+      <AlertModal
+        isOpen={alertModal.isOpen}
+        onClose={() => setAlertModal({ ...alertModal, isOpen: false })}
+        title={alertModal.type === 'success' ? 'สำเร็จ' : 'เกิดข้อผิดพลาด'}
+        message={alertModal.message}
+        type={alertModal.type}
+      />
+
+      {/* Confirm Modal */}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+        onConfirm={confirmModal.onConfirm}
+        title="ยืนยันการลบ"
+        message={confirmModal.message}
+        confirmText="ลบ"
+        cancelText="ยกเลิก"
+        type="danger"
+      />
     </div>
   );
 }

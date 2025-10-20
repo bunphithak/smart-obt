@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import ConfirmModal from '../../components/ConfirmModal';
 import AlertModal from '../../components/AlertModal';
+import { useAuth } from '../../contexts/AuthContext';
 
 export default function CategoriesPage() {
+  const { apiCall } = useAuth();
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -10,6 +12,7 @@ export default function CategoriesPage() {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
+    codePrefix: '',
     isActive: true,
   });
 
@@ -49,9 +52,8 @@ export default function CategoriesPage() {
       const method = editingCategory ? 'PUT' : 'POST';
       const data = editingCategory ? { ...formData, id: editingCategory.id } : formData;
 
-      const res = await fetch('/api/categories', {
+      const res = await apiCall('/api/categories', {
         method,
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
       });
 
@@ -65,7 +67,7 @@ export default function CategoriesPage() {
         );
         setShowForm(false);
         setEditingCategory(null);
-        setFormData({ name: '', description: '', isActive: true });
+        setFormData({ name: '', description: '', codePrefix: '', isActive: true });
         fetchCategories();
       } else {
         showAlert('ข้อผิดพลาด', result.error, 'error');
@@ -81,6 +83,7 @@ export default function CategoriesPage() {
     setFormData({
       name: category.name,
       description: category.description || '',
+      codePrefix: category.codePrefix || '',
       isActive: category.isActive
     });
     setShowForm(true);
@@ -95,7 +98,9 @@ export default function CategoriesPage() {
     if (!categoryToDelete) return;
 
     try {
-      const res = await fetch(`/api/categories?id=${categoryToDelete.id}`, { method: 'DELETE' });
+      const res = await apiCall(`/api/categories?id=${categoryToDelete.id}`, { 
+        method: 'DELETE' 
+      });
       const result = await res.json();
 
       setShowConfirmModal(false);
@@ -150,7 +155,7 @@ export default function CategoriesPage() {
           <button
             onClick={() => {
               setEditingCategory(null);
-              setFormData({ name: '', description: '', isActive: true });
+              setFormData({ name: '', description: '', codePrefix: '', isActive: true });
               setShowForm(true);
             }}
             className="mt-3 sm:mt-0 inline-flex items-center px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
@@ -191,7 +196,8 @@ export default function CategoriesPage() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">ลำดับ</th>
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">รหัส</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ชื่อหมวดหมู่</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">คำอธิบาย</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">สถานะ</th>
@@ -199,9 +205,14 @@ export default function CategoriesPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {categories.map(category => (
+              {categories.map((category, index) => (
                 <tr key={category.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 text-sm font-mono">{category.id}</td>
+                  <td className="px-6 py-4 text-sm text-center font-medium text-gray-600">{index + 1}</td>
+                  <td className="px-6 py-4 text-sm text-center">
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
+                      {category.codePrefix || '-'}
+                    </span>
+                  </td>
                   <td className="px-6 py-4 text-sm font-medium text-gray-900">{category.name}</td>
                   <td className="px-6 py-4 text-sm text-gray-500">{category.description || '-'}</td>
                   <td className="px-6 py-4 text-sm">
@@ -273,6 +284,25 @@ export default function CategoriesPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
+                    รหัสคำนำหน้า (Prefix) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="codePrefix"
+                    value={formData.codePrefix}
+                    onChange={handleChange}
+                    required
+                    maxLength={10}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="เช่น LED (สำหรับรหัส LED-000001)"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    ใช้สำหรับสร้างรหัสทรัพย์สินอัตโนมัติ เช่น LED-000001, LED-000002
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
                     คำอธิบาย
                   </label>
                   <textarea
@@ -298,22 +328,22 @@ export default function CategoriesPage() {
                   </label>
                 </div>
 
-                <div className="flex space-x-3 pt-4">
-                  <button
-                    type="submit"
-                    className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
-                  >
-                    {editingCategory ? 'บันทึกการแก้ไข' : 'เพิ่มหมวดหมู่'}
-                  </button>
+                <div className="flex justify-end space-x-3 pt-4">
                   <button
                     type="button"
                     onClick={() => {
                       setShowForm(false);
                       setEditingCategory(null);
                     }}
-                    className="flex-1 bg-gray-200 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-300"
+                    className="px-6 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
                   >
                     ยกเลิก
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                  >
+                    {editingCategory ? 'บันทึกการแก้ไข' : 'เพิ่มหมวดหมู่'}
                   </button>
                 </div>
               </form>

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import Image from 'next/image';
+import AlertModal from '../../components/AlertModal';
 
 // Disable static generation for this page
 export async function getServerSideProps() {
@@ -19,6 +20,7 @@ export default function TrackStatus() {
   const [rating, setRating] = useState(0);
   const [feedback, setFeedback] = useState('');
   const [showFeedbackForm, setShowFeedbackForm] = useState(false);
+  const [alertModal, setAlertModal] = useState({ isOpen: false, message: '', type: 'info' });
 
   const fetchReportStatus = useCallback(async () => {
     try {
@@ -42,7 +44,11 @@ export default function TrackStatus() {
 
   const submitFeedback = async () => {
     if (rating === 0) {
-      alert('กรุณาให้คะแนน');
+      setAlertModal({
+        isOpen: true,
+        message: 'กรุณาให้คะแนนก่อนส่งความคิดเห็น',
+        type: 'warning'
+      });
       return;
     }
 
@@ -59,12 +65,20 @@ export default function TrackStatus() {
 
       const data = await res.json();
       if (data.success) {
-        alert('ขอบคุณสำหรับความคิดเห็น');
+        setAlertModal({
+          isOpen: true,
+          message: 'ขอบคุณสำหรับความคิดเห็น',
+          type: 'success'
+        });
         setShowFeedbackForm(false);
         fetchReportStatus();
       }
     } catch (error) {
-      alert('เกิดข้อผิดพลาด กรุณาลองใหม่');
+      setAlertModal({
+        isOpen: true,
+        message: 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง',
+        type: 'error'
+      });
     }
   };
 
@@ -149,9 +163,35 @@ export default function TrackStatus() {
         <title>ติดตามสถานะ - {ticketId} - ระบบ OBT Smart</title>
       </Head>
       
+      {/* Header */}
+      <header className="bg-white shadow-sm sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <img src="/images/abt-logo.png" alt="โลโก้ อบต.ละหาร" className="w-12 h-12" />
+              <div>
+                <h1 className="text-xl font-bold text-gray-900">Smart OBT</h1>
+                <p className="text-sm text-gray-600">อบต.ละหาร - ติดตามสถานะ</p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-3">
+              <button
+                onClick={() => {
+                  const backUrl = report?.referrerUrl || '/public/request';
+                  router.push(backUrl);
+                }}
+                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium text-gray-700 transition-colors"
+              >
+                ← กลับ
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+      
       <div className="w-full px-4 py-8">
         <div className="max-w-6xl mx-auto">
-        {/* Header */}
+        {/* Page Title */}
         <div className="text-center mb-6">
           <h1 className="text-3xl font-bold text-gray-800 mb-2">ติดตามสถานะงาน</h1>
           <p className="text-gray-600">รหัส: {ticketId}</p>
@@ -348,23 +388,16 @@ export default function TrackStatus() {
             </div>
           )}
         </div>
+        </div>
 
-        {/* Actions */}
-        <div className="flex space-x-3">
-          <button
-            onClick={() => router.push('/')}
-            className="flex-1 bg-white text-gray-700 px-6 py-3 rounded-lg shadow hover:shadow-md"
-          >
-            กลับหน้าแรก
-          </button>
-          <button
-            onClick={fetchReportStatus}
-            className="px-6 py-3 bg-blue-600 text-white rounded-lg shadow hover:shadow-md"
-          >
-            รีเฟรช
-          </button>
-        </div>
-        </div>
+        {/* Alert Modal */}
+        <AlertModal
+          isOpen={alertModal.isOpen}
+          onClose={() => setAlertModal({ ...alertModal, isOpen: false })}
+          title={alertModal.type === 'success' ? 'สำเร็จ' : alertModal.type === 'warning' ? 'แจ้งเตือน' : 'เกิดข้อผิดพลาด'}
+          message={alertModal.message}
+          type={alertModal.type}
+        />
       </div>
     </div>
   );

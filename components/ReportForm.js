@@ -124,19 +124,19 @@ export default function ReportForm({ report, assets, onSubmit, onCancel }) {
         <p className="text-xs text-gray-500 mt-1">รองรับไฟล์ภาพ JPG, PNG (สูงสุด 5 ไฟล์)</p>
       </div>
 
-      <div className="flex space-x-3 pt-4">
-        <button
-          type="submit"
-          className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          {report ? 'บันทึกการแก้ไข' : 'แจ้งปัญหา'}
-        </button>
+      <div className="flex justify-end space-x-3 pt-4">
         <button
           type="button"
           onClick={onCancel}
-          className="flex-1 bg-gray-200 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400"
+          className="px-6 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400 transition-colors"
         >
           ยกเลิก
+        </button>
+        <button
+          type="submit"
+          className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors shadow-md hover:shadow-lg"
+        >
+          {report ? 'บันทึกการแก้ไข' : 'แจ้งปัญหา'}
         </button>
       </div>
     </form>

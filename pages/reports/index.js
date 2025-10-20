@@ -5,9 +5,11 @@ export default function ReportsPage() {
   const router = useRouter();
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [filter, setFilter] = useState({ status: '', search: '' });
+  const [filter, setFilter] = useState({ status: '', search: '', reportType: 'repair' });
   const [isClient, setIsClient] = useState(false);
+  const [activeTab, setActiveTab] = useState('repair');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
 
   useEffect(() => {
     setIsClient(true);
@@ -28,7 +30,6 @@ export default function ReportsPage() {
       console.log('Reports data:', data);
       if (data.success) {
         setReports(data.data);
-        setError(null);
       } else {
         console.error('API returned error:', data.error);
         // Show fallback data instead of error
@@ -117,7 +118,6 @@ export default function ReportsPage() {
           }
         ];
         setReports(fallbackReports);
-        setError(null);
       }
       setLoading(false);
     } catch (fetchError) {
@@ -208,13 +208,8 @@ export default function ReportsPage() {
         }
       ];
       setReports(fallbackReports);
-      setError(null);
       setLoading(false);
     }
-  };
-
-  const createRepair = (report) => {
-    router.push(`/repairs/new?reportId=${report.id}`);
   };
 
   const viewDetails = (report) => {
@@ -224,9 +219,8 @@ export default function ReportsPage() {
   const getStatusColor = (status) => {
     switch (status) {
       case 'รอดำเนินการ': return 'bg-yellow-100 text-yellow-800';
-      case 'กำลังดำเนินการ': return 'bg-blue-100 text-blue-800';
-      case 'เสร็จสิ้น': return 'bg-green-100 text-green-800';
-      case 'ยกเลิก': return 'bg-red-100 text-red-800';
+      case 'อนุมัติ': return 'bg-green-100 text-green-800';
+      case 'ไม่อนุมัติ': return 'bg-red-100 text-red-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
@@ -242,17 +236,42 @@ export default function ReportsPage() {
   };
 
   const filteredReports = reports.filter(report => {
+    console.log('Filtering report:', {
+      id: report.id,
+      reportType: report.reportType,
+      activeTab: activeTab,
+      matches: report.reportType === activeTab
+    });
+    
+    // Filter by report type (tab)
+    if (report.reportType !== activeTab) return false;
+    
     if (filter.status && report.status !== filter.status) return false;
     if (filter.search) {
       const searchLower = filter.search.toLowerCase();
       return (
-        report.title.toLowerCase().includes(searchLower) ||
+        report.title?.toLowerCase().includes(searchLower) ||
         report.assetName?.toLowerCase().includes(searchLower) ||
-        report.reportedBy?.toLowerCase().includes(searchLower)
+        report.reportedBy?.toLowerCase().includes(searchLower) ||
+        report.ticketId?.toLowerCase().includes(searchLower) ||
+        report.description?.toLowerCase().includes(searchLower)
       );
     }
     return true;
   });
+  
+  console.log('Filtered reports count:', filteredReports.length, 'for tab:', activeTab);
+
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredReports.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedReports = filteredReports.slice(startIndex, endIndex);
+
+  // Reset to first page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab, filter.status, filter.search]);
 
   if (!isClient) {
     return null;
@@ -277,11 +296,70 @@ export default function ReportsPage() {
       {/* Page Header */}
       <div className="mb-6">
         <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mb-1">
-          รายการแจ้งปัญหา / ร้องเรียน
+          รายการรับเรื่อง
         </h1>
         <p className="text-gray-500 dark:text-gray-400 text-sm">
-          ตรวจสอบและจัดการรายงานปัญหาจากประชาชน
+          ตรวจสอบและจัดการแจ้งซ่อมและคำร้องจากประชาชน
         </p>
+      </div>
+
+      {/* Tabs */}
+      <div className="mb-6">
+        <div className="border-b border-gray-200 dark:border-gray-700">
+          <nav className="-mb-px flex space-x-8">
+            <button
+              onClick={() => {
+                console.log('Switching to repair tab');
+                setActiveTab('repair');
+              }}
+              className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                activeTab === 'repair'
+                  ? 'border-red-500 text-red-600 dark:text-red-400'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+              }`}
+            >
+              <div className="flex items-center space-x-2">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <span>แจ้งซ่อม</span>
+                <span className={`px-2 py-1 rounded-full text-xs ${
+                  activeTab === 'repair'
+                    ? 'bg-red-100 text-red-600'
+                    : 'bg-gray-100 text-gray-600'
+                }`}>
+                  {reports.filter(r => r.reportType === 'repair').length}
+                </span>
+              </div>
+            </button>
+            
+            <button
+              onClick={() => {
+                console.log('Switching to request tab');
+                setActiveTab('request');
+              }}
+              className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                activeTab === 'request'
+                  ? 'border-purple-500 text-purple-600 dark:text-purple-400'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+              }`}
+            >
+              <div className="flex items-center space-x-2">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <span>ใบคำร้อง</span>
+                <span className={`px-2 py-1 rounded-full text-xs ${
+                  activeTab === 'request'
+                    ? 'bg-purple-100 text-purple-600'
+                    : 'bg-gray-100 text-gray-600'
+                }`}>
+                  {reports.filter(r => r.reportType === 'request').length}
+                </span>
+              </div>
+            </button>
+          </nav>
+        </div>
       </div>
 
       {/* Filters */}
@@ -289,7 +367,7 @@ export default function ReportsPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <input
             type="text"
-            placeholder="🔍 ค้นหา (หัวข้อ, ทรัพย์สิน, ผู้แจ้ง)"
+            placeholder="🔍 ค้นหา (Ticket ID, หัวข้อ, ทรัพย์สิน, ผู้แจ้ง)"
             value={filter.search}
             onChange={(e) => setFilter({ ...filter, search: e.target.value })}
             className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -312,77 +390,155 @@ export default function ReportsPage() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:gap-6 xl:grid-cols-4 mb-6">
         <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
           <p className="text-sm text-gray-500 dark:text-gray-400">ทั้งหมด</p>
-          <p className="mt-2 text-2xl font-bold text-gray-800 dark:text-white/90">{reports.length}</p>
+          <p className="mt-2 text-2xl font-bold text-gray-800 dark:text-white/90">
+            {reports.filter(r => r.reportType === activeTab).length}
+          </p>
         </div>
         <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
           <p className="text-sm text-gray-500 dark:text-gray-400">รอดำเนินการ</p>
           <p className="mt-2 text-2xl font-bold text-yellow-600 dark:text-yellow-400">
-            {reports.filter(r => r.status === 'รอดำเนินการ').length}
+            {reports.filter(r => r.reportType === activeTab && r.status === 'รอดำเนินการ').length}
           </p>
         </div>
         <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
           <p className="text-sm text-gray-500 dark:text-gray-400">กำลังดำเนินการ</p>
           <p className="mt-2 text-2xl font-bold text-blue-600 dark:text-blue-400">
-            {reports.filter(r => r.status === 'กำลังดำเนินการ').length}
+            {reports.filter(r => r.reportType === activeTab && r.status === 'กำลังดำเนินการ').length}
           </p>
         </div>
         <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
           <p className="text-sm text-gray-500 dark:text-gray-400">เสร็จสิ้น</p>
           <p className="mt-2 text-2xl font-bold text-green-600 dark:text-green-400">
-            {reports.filter(r => r.status === 'เสร็จสิ้น').length}
+            {reports.filter(r => r.reportType === activeTab && r.status === 'เสร็จสิ้น').length}
           </p>
         </div>
       </div>
 
-      {/* Reports List */}
-      <div className="space-y-4">
-        {filteredReports.map(report => (
-          <div key={report.id} className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] hover:shadow-lg transition-shadow">
-            <div className="p-6">
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex-1">
-                  <div className="flex items-center space-x-3 mb-2">
-                    <h3 className="text-lg font-semibold text-gray-800">{report.title}</h3>
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(report.status)}`}>
-                      {report.status}
-                    </span>
-                    <span className={`text-sm font-medium ${getPriorityColor(report.priority)}`}>
-                      {report.priority}
-                    </span>
-                  </div>
-                  <p className="text-sm text-gray-600 mb-2">
-                    ทรัพย์สิน: <span className="font-medium">{report.assetName || 'N/A'}</span>
-                  </p>
-                  <p className="text-sm text-gray-700">{report.description}</p>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between pt-4 border-t">
-                <div className="text-sm text-gray-600 space-y-1">
-                  <p>ผู้แจ้ง: {report.reportedBy || 'ไม่ระบุ'}</p>
-                  <p>วันที่แจ้ง: {new Date(report.reportedAt).toLocaleDateString('th-TH')}</p>
-                </div>
-                <div className="flex space-x-2">
-                  <button
-                    onClick={() => viewDetails(report)}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
-                  >
-                    ดูรายละเอียด
-                  </button>
-                  {report.status === 'รอดำเนินการ' && (
+      {/* Reports Table */}
+      <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50 dark:bg-gray-800">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  Ticket ID
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  หัวข้อ
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  ทรัพย์สิน
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  สถานะ
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  ผู้แจ้ง
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  วันที่แจ้ง
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  การดำเนินการ
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+              {paginatedReports.map(report => (
+                <tr key={report.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium text-gray-900 dark:text-white">
+                      {report.ticketId || report.id}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="text-sm text-gray-900 dark:text-white font-medium">
+                      {report.title || report.problemType}
+                    </div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400 truncate max-w-xs">
+                      {report.description}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900 dark:text-white">
+                      {report.assetName || report.assetCode || 'N/A'}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center space-x-2">
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(report.status)}`}>
+                        {report.status}
+                      </span>
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(report.priority)}`}>
+                        {report.priority}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900 dark:text-white">
+                      {report.reportedBy}
+                    </div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400">
+                      {report.reporterPhone}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                    {new Date(report.reportedAt).toLocaleDateString('th-TH')}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <button
-                      onClick={() => createRepair(report)}
-                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
+                      onClick={() => viewDetails(report)}
+                      className="px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-medium transition-colors"
                     >
-                      สร้างงานซ่อม
+                      ดูรายละเอียด
                     </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        ))}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between mt-6">
+          <div className="text-sm text-gray-700 dark:text-gray-300">
+            แสดง {startIndex + 1} ถึง {Math.min(endIndex, filteredReports.length)} จาก {filteredReports.length} รายการ
+          </div>
+          <div className="flex space-x-2">
+            <button
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+              className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              ก่อนหน้า
+            </button>
+            
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+              <button
+                key={page}
+                onClick={() => setCurrentPage(page)}
+                className={`px-3 py-2 text-sm font-medium rounded-md ${
+                  currentPage === page
+                    ? 'text-white bg-blue-600 border border-blue-600'
+                    : 'text-gray-500 bg-white border border-gray-300 hover:bg-gray-50'
+                }`}
+              >
+                {page}
+              </button>
+            ))}
+            
+            <button
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+              disabled={currentPage === totalPages}
+              className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              ถัดไป
+            </button>
+          </div>
+        </div>
+      )}
 
       {filteredReports.length === 0 && (
         <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] p-12 text-center">

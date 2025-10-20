@@ -45,11 +45,19 @@ export default function Home() {
         {/* Hero Section */}
         <div className="container mx-auto px-4 py-16">
           <div className="text-center mb-12">
-            <h1 className="text-4xl md:text-5xl font-bold text-gray-800 mb-4">
+            {/* Logo */}
+            <div className="flex justify-center mb-6">
+              <img src="/images/abt-logo.png" alt="โลโก้ อบต.ละหาร" className="w-24 h-24" />
+            </div>
+            
+            <h1 className="text-4xl md:text-5xl font-bold text-gray-800 mb-2">
               ระบบจัดการทรัพย์สิน OBT Smart
             </h1>
+            <h2 className="text-2xl md:text-3xl font-semibold text-blue-600 mb-4">
+              อบต.ละหาร อ.ปลวกแดง จ.ระยอง
+            </h2>
             <p className="text-xl text-gray-600 mb-8">
-              แจ้งปัญหาสาธารณูปโภคได้ง่ายๆ ผ่าน QR Code
+              แจ้งปัญหาไฟส่องสว่างได้ง่ายๆ ผ่าน QR Code
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
@@ -106,6 +114,7 @@ export default function Home() {
 
         {/* Footer */}
         <div className="text-center py-8 text-gray-600">
+          <p className="mb-2">องค์การบริหารส่วนตำบลละหาร อำเภอปลวกแดง จังหวัดระยอง</p>
           <p>หากมีข้อสงสัย โทร. 0-XXXX-XXXX</p>
           <button
             onClick={() => setIsPublic(false)}
@@ -129,7 +138,7 @@ export default function Home() {
               Dashboard
             </h1>
             <p className="text-gray-500 text-sm">
-              ภาพรวมระบบจัดการทรัพย์สิน OBT
+              ภาพรวมระบบจัดการไฟส่องสว่าง อบต.ละหาร อ.ปลวกแดง จ.ระยอง
             </p>
           </div>
               <Link
