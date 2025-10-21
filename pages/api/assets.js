@@ -26,7 +26,7 @@ export default async function handler(req, res) {
   try {
     switch (method) {
       case 'GET':
-        const { villageId, status, category, id } = req.query;
+        const { villageId, status, category, id, code } = req.query;
         
         if (id) {
           // Get single asset with village and category info
@@ -70,6 +70,52 @@ export default async function handler(req, res) {
               createdAt: asset.created_at
             }
           });
+          return;
+        }
+
+        if (code) {
+          // Get asset by code
+          const result = await pool.query(`
+            SELECT 
+              a.*,
+              v.name as village_name,
+              c.name as category_name
+            FROM assets a
+            LEFT JOIN villages v ON a.village_id = v.id
+            LEFT JOIN categories c ON a.category_id = c.id
+            WHERE a.code = $1
+          `, [code]);
+
+          if (result.rows.length === 0) {
+            return res.status(404).json({ 
+              success: false, 
+              error: 'ไม่พบข้อมูลทรัพย์สิน' 
+            });
+          }
+
+          const asset = result.rows[0];
+          res.status(200).json({ 
+            success: true, 
+            data: [{
+              id: asset.id,
+              name: asset.name,
+              code: asset.code,
+              category: asset.category_name,
+              status: asset.status,
+              villageId: asset.village_id,
+              villageName: asset.village_name,
+              qrCode: asset.qr_code,
+              value: asset.value,
+              purchaseDate: asset.purchase_date,
+              locationName: asset.location_name,
+              locationAddress: asset.location_address,
+              latitude: asset.latitude,
+              longitude: asset.longitude,
+              description: asset.description,
+              createdAt: asset.created_at
+            }]
+          });
+          return;
         } else {
           // Build query with filters
           let query = `
@@ -137,7 +183,7 @@ export default async function handler(req, res) {
       case 'POST':
         const { 
           name, 
-          code, 
+          code: assetCode, 
           categoryId, 
           villageId: assetVillageId, 
           description, 
@@ -151,7 +197,7 @@ export default async function handler(req, res) {
         } = req.body;
         
         // Validate required fields
-        if (!name || !code || !categoryId || !assetVillageId) {
+        if (!name || !assetCode || !categoryId || !assetVillageId) {
           return res.status(400).json({ 
             success: false, 
             error: 'กรุณากรอกข้อมูลที่จำเป็น (name, code, categoryId, villageId)' 
@@ -161,7 +207,7 @@ export default async function handler(req, res) {
         // Check if code already exists
         const existingAsset = await pool.query(
           'SELECT id FROM assets WHERE code = $1',
-          [code]
+          [assetCode]
         );
 
         if (existingAsset.rows.length > 0) {
@@ -206,7 +252,7 @@ export default async function handler(req, res) {
           RETURNING *
         `, [
           name.trim(),
-          code.trim(),
+          assetCode.trim(),
           categoryId,
           assetVillageId,
           description?.trim() || '',
@@ -217,7 +263,7 @@ export default async function handler(req, res) {
           locationAddress?.trim() || null,
           latitude ? parseFloat(latitude) : null,
           longitude ? parseFloat(longitude) : null,
-          `/qr/${code}.png`
+          `/qr/${assetCode}.png`
         ]);
 
         const newAsset = result.rows[0];

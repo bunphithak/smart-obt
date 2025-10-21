@@ -401,15 +401,15 @@ export default function ReportsPage() {
           </p>
         </div>
         <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
-          <p className="text-sm text-gray-500 dark:text-gray-400">กำลังดำเนินการ</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">ไม่อนุมัติ</p>
           <p className="mt-2 text-2xl font-bold text-blue-600 dark:text-blue-400">
-            {reports.filter(r => r.reportType === activeTab && r.status === 'กำลังดำเนินการ').length}
+            {reports.filter(r => r.reportType === activeTab && r.status === 'ไม่อนุมัติ').length}
           </p>
         </div>
         <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
-          <p className="text-sm text-gray-500 dark:text-gray-400">เสร็จสิ้น</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">อนุมัติ</p>
           <p className="mt-2 text-2xl font-bold text-green-600 dark:text-green-400">
-            {reports.filter(r => r.reportType === activeTab && r.status === 'เสร็จสิ้น').length}
+            {reports.filter(r => r.reportType === activeTab && r.status === 'อนุมัติ').length}
           </p>
         </div>
       </div>
@@ -461,7 +461,7 @@ export default function ReportsPage() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-900 dark:text-white">
-                      {report.assetName || report.assetCode || 'N/A'}
+                      {report.assetName || report.assetCode || '-'}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">

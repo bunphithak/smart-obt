@@ -188,9 +188,13 @@ export default function RepairForm() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    console.log('🚀 Form submitted!');
     setSubmitting(true);
 
     try {
+      console.log('📝 Form data:', formData);
+      console.log('📍 Coordinates:', formData.coordinates);
+      
       // Create FormData for file upload
       const formDataToSend = new FormData();
       formDataToSend.append('assetCode', assetCode);
@@ -225,23 +229,43 @@ export default function RepairForm() {
         formDataToSend.append(`images`, imageObj.file);
       });
 
+      console.log('📤 Sending request to /api/reports...');
+      
       const res = await fetch('/api/reports', {
         method: 'POST',
         body: formDataToSend,
       });
 
+      console.log('📥 Response status:', res.status);
       const data = await res.json();
+      console.log('📥 Response data:', data);
       
       if (data.success) {
+        console.log('✅ Success! Ticket ID:', data.ticketId);
         setTicketId(data.ticketId);
         setShowSuccessModal(true);
       } else {
-        showAlert('error', 'เกิดข้อผิดพลาด', data.message);
+        console.error('❌ API Error:', data.message);
+        showAlert('error', 'เกิดข้อผิดพลาด', data.message || data.error);
       }
     } catch (error) {
-      console.error('Error submitting report:', error);
-      showAlert('error', 'เกิดข้อผิดพลาด', 'เกิดข้อผิดพลาด กรุณาลองใหม่');
+      console.error('❌ Error submitting report:', error);
+      console.error('❌ Error name:', error.name);
+      console.error('❌ Error message:', error.message);
+      
+      let errorMessage = 'เกิดข้อผิดพลาดในการส่งข้อมูล กรุณาลองใหม่อีกครั้ง';
+      
+      if (error.name === 'AbortError') {
+        errorMessage = 'การส่งข้อมูลใช้เวลานานเกินไป กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต';
+        console.error('❌ Request timeout after 30 seconds');
+      } else if (error.message.includes('Failed to fetch')) {
+        errorMessage = 'ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้ กรุณาตรวจสอบว่า server กำลังทำงานอยู่';
+        console.error('❌ Network error - server may be down');
+      }
+      
+      showAlert('error', 'เกิดข้อผิดพลาด', errorMessage);
     } finally {
+      console.log('✅ Submission complete, resetting submitting state');
       setSubmitting(false);
     }
   };

@@ -161,7 +161,11 @@ export default async function handler(req, res) {
           assignedTo: repairAssignedTo, 
           estimatedCost, 
           dueDate, 
-          notes 
+          notes,
+          assetCode,
+          location,
+          latitude,
+          longitude
         } = req.body;
 
         // Validate required fields
@@ -202,9 +206,9 @@ export default async function handler(req, res) {
         const result = await pool.query(`
           INSERT INTO repairs (
             report_id, title, description, status, priority, assigned_to,
-            estimated_cost, due_date, notes
+            estimated_cost, due_date, notes, asset_code, location, latitude, longitude
           )
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
           RETURNING *
         `, [
           repairReportId,
@@ -215,7 +219,11 @@ export default async function handler(req, res) {
           repairAssignedTo?.trim() || '',
           estimatedCost ? parseFloat(estimatedCost) : null,
           dueDate || null,
-          notes?.trim() || ''
+          notes?.trim() || '',
+          assetCode?.trim() || null,
+          location?.trim() || null,
+          latitude ? parseFloat(latitude) : null,
+          longitude ? parseFloat(longitude) : null
         ]);
 
         const newRepair = result.rows[0];

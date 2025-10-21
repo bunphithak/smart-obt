@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -12,15 +12,46 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
-function LocationMarker({ position, setPosition }) {
+function LocationMarker({ position, setPosition, onPositionChange }) {
+  const markerRef = useRef(null);
+  
   useMapEvents({
     click(e) {
       const newPos = [e.latlng.lat, e.latlng.lng];
       setPosition(newPos);
+      // เรียก callback ทันทีเมื่อคลิกบนแผนที่
+      if (onPositionChange) {
+        onPositionChange(newPos);
+      }
     },
   });
 
-  return position ? <Marker position={position} /> : null;
+  const eventHandlers = useMemo(
+    () => ({
+      dragend() {
+        const marker = markerRef.current;
+        if (marker != null) {
+          const newPos = marker.getLatLng();
+          const posArray = [newPos.lat, newPos.lng];
+          setPosition(posArray);
+          // เรียก callback ทันทีเมื่อลากหมุด
+          if (onPositionChange) {
+            onPositionChange(posArray);
+          }
+        }
+      },
+    }),
+    [setPosition, onPositionChange],
+  );
+
+  return position ? (
+    <Marker 
+      position={position} 
+      draggable={true}
+      eventHandlers={eventHandlers}
+      ref={markerRef}
+    />
+  ) : null;
 }
 
 function MapUpdater({ center, zoom }) {
@@ -113,11 +144,11 @@ export default function MapPicker({ initialLat, initialLng, onLocationSelect }) 
     }, 100);
   };
 
-  const handleConfirm = () => {
-    if (position) {
-      // Simple address format from coordinates
-      const address = `${position[0].toFixed(6)}, ${position[1].toFixed(6)}`;
-      onLocationSelect(position[0], position[1], address);
+  // Helper function สำหรับเรียก onLocationSelect
+  const handlePositionChange = (newPos) => {
+    if (newPos && newPos[0] && newPos[1]) {
+      const address = `${newPos[0].toFixed(6)}, ${newPos[1].toFixed(6)}`;
+      onLocationSelect(newPos[0], newPos[1], address);
     }
   };
 
@@ -125,7 +156,10 @@ export default function MapPicker({ initialLat, initialLng, onLocationSelect }) 
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
-          setPosition([pos.coords.latitude, pos.coords.longitude]);
+          const currentPos = [pos.coords.latitude, pos.coords.longitude];
+          setPosition(currentPos);
+          // ใช้ helper function
+          handlePositionChange(currentPos);
         },
         (error) => {
           setAlertModal({
@@ -156,7 +190,7 @@ export default function MapPicker({ initialLat, initialLng, onLocationSelect }) 
     <div className="w-full">
       <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
         <p className="text-sm text-blue-800">
-          <strong>💡 คำแนะนำ:</strong> ค้นหาสถานที่ด้านล่าง หรือคลิกบนแผนที่เพื่อปักหมุดตำแหน่ง
+          <strong>💡 วิธีใช้งาน:</strong> ค้นหา คลิกบนแผนที่ หรือลากหมุดไปยังตำแหน่งที่ต้องการ (อัปเดตทันที)
         </p>
         {position && (
           <p className="text-sm text-blue-700 mt-1">
@@ -232,33 +266,26 @@ export default function MapPicker({ initialLat, initialLng, onLocationSelect }) 
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
-          <LocationMarker position={position} setPosition={setPosition} />
+          <LocationMarker 
+            position={position} 
+            setPosition={setPosition} 
+            onPositionChange={handlePositionChange}
+          />
           <MapUpdater center={position} zoom={mapZoom} />
         </MapContainer>
       </div>
 
-      <div className="mt-4 flex justify-end gap-3">
+      <div className="mt-4">
         <button
           type="button"
           onClick={handleCurrentLocation}
-          className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 flex items-center gap-2 transition-colors"
+          className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2 transition-colors shadow-md"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
           </svg>
           ใช้ตำแหน่งปัจจุบัน
-        </button>
-        <button
-          type="button"
-          onClick={handleConfirm}
-          disabled={!position}
-          className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-          </svg>
-          ยืนยันตำแหน่ง
         </button>
       </div>
 

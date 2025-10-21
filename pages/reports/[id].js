@@ -2,6 +2,13 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import Image from 'next/image';
+import dynamic from 'next/dynamic';
+
+// Dynamic import for MapViewer (client-side only) - แผนที่แบบดูอย่างเดียว
+const MapViewer = dynamic(() => import('../../components/MapViewer'), {
+  ssr: false,
+  loading: () => <div className="h-64 bg-gray-100 rounded-lg flex items-center justify-center">กำลังโหลดแผนที่...</div>
+});
 
 export default function ReportDetailPage() {
   const router = useRouter();
@@ -19,6 +26,8 @@ export default function ReportDetailPage() {
   });
   const [showAlertModal, setShowAlertModal] = useState(false);
   const [alertData, setAlertData] = useState({ type: 'info', title: '', message: '' });
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [showImageModal, setShowImageModal] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
@@ -50,6 +59,26 @@ export default function ReportDetailPage() {
             // Keep as string if not valid JSON
           }
         }
+        
+        // Parse coordinates if they exist
+        console.log('🔍 Original coordinates:', reportData.coordinates);
+        console.log('🔍 Coordinates type:', typeof reportData.coordinates);
+        
+        if (reportData.coordinates) {
+          try {
+            if (typeof reportData.coordinates === 'string') {
+              reportData.coordinates = JSON.parse(reportData.coordinates);
+              console.log('✅ Parsed coordinates:', reportData.coordinates);
+            }
+          } catch (e) {
+            console.warn('❌ Could not parse coordinates:', e);
+            reportData.coordinates = null;
+          }
+        } else {
+          console.warn('⚠️ No coordinates found in report data');
+        }
+        
+        console.log('🗺️ Final coordinates for map:', reportData.coordinates);
         
         setReport(reportData);
         setUpdateData({
@@ -83,6 +112,13 @@ export default function ReportDetailPage() {
 
   const handleUpdateStatus = async () => {
     try {
+      console.log('📤 Updating report status:', {
+        id: report.id,
+        oldStatus: report.status,
+        newStatus: updateData.status,
+        priority: updateData.priority
+      });
+
       const res = await fetch('/api/reports', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -96,15 +132,35 @@ export default function ReportDetailPage() {
       });
 
       const data = await res.json();
+      console.log('📥 API Response:', data);
+
       if (data.success) {
-        showAlert('success', 'อัปเดตสำเร็จ', 'อัปเดตสถานะรายงานเรียบร้อยแล้ว');
+        // แสดงข้อความที่แตกต่างกันตามสถานะ
+        let message = 'อัปเดตสถานะรายงานเรียบร้อยแล้ว';
+        if (data.repairId) {
+          console.log('✅ Repair job created with ID:', data.repairId);
+          message = 'อัปเดตสถานะเป็น "อนุมัติ" และสร้างงานซ่อมแล้ว กรุณาไปที่เมนู "จัดการงานซ่อม" เพื่อจ่ายงานช่าง';
+        } else if (data.error) {
+          console.warn('⚠️ Repair creation failed:', data.error);
+        }
+        
+        showAlert('success', 'อัปเดตสำเร็จ', message);
         fetchReportDetail();
         setShowUpdateModal(false);
+        
+        // ถ้ามีการสร้างงานซ่อม เปลี่ยนเส้นทางไปหน้าจัดการงานซ่อมหลัง 2 วินาที
+        if (data.repairId) {
+          console.log('🔄 Redirecting to /repairs in 2 seconds...');
+          setTimeout(() => {
+            router.push('/repairs');
+          }, 2000);
+        }
       } else {
+        console.error('❌ Update failed:', data.error);
         showAlert('error', 'เกิดข้อผิดพลาด', data.error);
       }
     } catch (error) {
-      console.error('Error updating report:', error);
+      console.error('❌ Error updating report:', error);
       showAlert('error', 'เกิดข้อผิดพลาด', 'เกิดข้อผิดพลาดในการอัปเดต กรุณาลองใหม่');
     }
   };
@@ -180,19 +236,41 @@ export default function ReportDetailPage() {
         {/* Page Header */}
         <div className="mb-6 flex items-center justify-between">
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mb-1">
-              รายละเอียดรายงาน
-            </h1>
+            <div className="flex items-center gap-3 mb-1">
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">
+                รายละเอียดรายงาน
+              </h1>
+              {report.reportType && (
+                <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                  report.reportType === 'repair' 
+                    ? 'bg-orange-100 text-orange-800 border border-orange-200' 
+                    : 'bg-blue-100 text-blue-800 border border-blue-200'
+                }`}>
+                  {report.reportType === 'repair' ? '🔧 งานแจ้งซ่อม' : '📝 ใบคำร้อง'}
+                </span>
+              )}
+            </div>
             <p className="text-gray-500 dark:text-gray-400 text-sm">
               รหัสรายงาน: #{report.ticketId || report.id}
             </p>
           </div>
-          <button
-            onClick={() => router.push('/reports')}
-            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
-          >
-            ← กลับ
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => window.open(`/public/pdf/${id}`, '_blank')}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2 transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+              </svg>
+              พิมพ์รายงาน
+            </button>
+            <button
+              onClick={() => router.push('/reports')}
+              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+            >
+              ← กลับ
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -202,9 +280,18 @@ export default function ReportDetailPage() {
             <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] p-6">
               <div className="flex items-start justify-between mb-4">
                 <div className="flex-1">
-                  <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-2">
-                    {report.problemType || report.title}
-                  </h2>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className={`px-2.5 py-0.5 rounded-md text-xs font-semibold ${
+                      report.reportType === 'repair' 
+                        ? 'bg-orange-100 text-orange-700' 
+                        : 'bg-blue-100 text-blue-700'
+                    }`}>
+                      {report.reportType === 'repair' ? 'แจ้งซ่อม' : 'คำร้อง'}
+                    </span>
+                    <h2 className="text-xl font-bold text-gray-800 dark:text-white">
+                      {report.problemType || report.title}
+                    </h2>
+                  </div>
                   <div className="flex items-center space-x-3">
                     <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(report.status)}`}>
                       {report.status}
@@ -264,14 +351,32 @@ export default function ReportDetailPage() {
                     </label>
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                       {report.images.map((image, index) => (
-                        <Image
+                        <div
                           key={index}
-                          src={image}
-                          alt={`รูปภาพ ${index + 1}`}
-                          width={300}
-                          height={200}
-                          className="w-full h-32 object-cover rounded-lg border border-gray-200"
-                        />
+                          className="relative cursor-pointer group"
+                          onClick={() => {
+                            setSelectedImage(image);
+                            setShowImageModal(true);
+                          }}
+                        >
+                          <Image
+                            src={image}
+                            alt={`รูปภาพ ${index + 1}`}
+                            width={300}
+                            height={200}
+                            className="w-full h-32 object-cover rounded-lg border border-gray-200 transition-transform group-hover:scale-105"
+                          />
+                          <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-opacity rounded-lg flex items-center justify-center">
+                            <svg 
+                              className="w-8 h-8 text-white opacity-0 group-hover:opacity-100 transition-opacity" 
+                              fill="none" 
+                              stroke="currentColor" 
+                              viewBox="0 0 24 24"
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+                            </svg>
+                          </div>
+                        </div>
                       ))}
                     </div>
                   </div>
@@ -280,25 +385,39 @@ export default function ReportDetailPage() {
             </div>
 
             {/* GPS Location Card */}
-            {report.gpsLocation && (
+            {report.coordinates && report.coordinates.lat && report.coordinates.lng && (
               <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] p-6">
                 <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">
-                  ตำแหน่ง GPS
+                  📍 ตำแหน่งที่แจ้ง
                 </h3>
-                <div className="space-y-2">
-                  <p className="text-sm text-gray-600">
-                    <span className="font-medium">ละติจูด:</span> {report.gpsLocation.latitude}
-                  </p>
-                  <p className="text-sm text-gray-600">
-                    <span className="font-medium">ลองจิจูด:</span> {report.gpsLocation.longitude}
-                  </p>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <p className="text-sm text-gray-600">
+                      <span className="font-medium">สถานที่:</span> {report.location || 'ไม่ระบุ'}
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      <span className="font-medium">พิกัด:</span> {report.coordinates.lat.toFixed(6)}, {report.coordinates.lng.toFixed(6)}
+                    </p>
+                  </div>
+                  
+                  {/* Map Display - แผนที่แบบดูอย่างเดียว */}
+                  {isClient && (
+                    <MapViewer
+                      lat={report.coordinates.lat}
+                      lng={report.coordinates.lng}
+                      title={report.title}
+                      description={report.location}
+                      height="320px"
+                    />
+                  )}
+                  
                   <a
-                    href={`https://www.google.com/maps?q=${report.gpsLocation.latitude},${report.gpsLocation.longitude}`}
+                    href={`https://www.google.com/maps?q=${report.coordinates.lat},${report.coordinates.lng}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-block mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+                    className="inline-block mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm transition-colors"
                   >
-                    เปิดใน Google Maps
+                    🗺️ เปิดใน Google Maps
                   </a>
                 </div>
               </div>
@@ -350,7 +469,7 @@ export default function ReportDetailPage() {
                   onClick={() => setShowUpdateModal(true)}
                   className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                 >
-                  อัปเดตสถานะ
+                  พิจรณา
                 </button>
               </div>
             </div>
@@ -359,11 +478,11 @@ export default function ReportDetailPage() {
 
         {/* Update Status Modal */}
         {showUpdateModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center" style={{ zIndex: 9999 }}>
             <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
               <div className="p-6">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">อัปเดตสถานะรายงาน</h3>
+                  <h3 className="text-lg font-semibold text-gray-900">พิจารณาสถานะรายงาน</h3>
                   <button
                     onClick={() => setShowUpdateModal(false)}
                     className="text-gray-400 hover:text-gray-600"
@@ -456,7 +575,7 @@ export default function ReportDetailPage() {
 
         {/* Alert Modal */}
         {showAlertModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center" style={{ zIndex: 9999 }}>
             <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
               <div className="p-6">
                 {/* Icon and Title */}
@@ -510,7 +629,41 @@ export default function ReportDetailPage() {
             </div>
           </div>
         )}
+
+        {/* Image Modal - แสดงภาพใหญ่ */}
+        {showImageModal && selectedImage && (
+          <div 
+            className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4"
+            style={{ zIndex: 9999 }}
+            onClick={() => {
+              setShowImageModal(false);
+              setSelectedImage(null);
+            }}
+          >
+            <div className="relative max-w-6xl max-h-full">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowImageModal(false);
+                  setSelectedImage(null);
+                }}
+                className="absolute -top-12 right-0 bg-white rounded-full p-2 hover:bg-gray-100 transition-colors shadow-lg"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+              <img
+                src={selectedImage}
+                alt="ภาพขยาย"
+                className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl"
+                onClick={(e) => e.stopPropagation()}
+              />
+            </div>
+          </div>
+        )}
       </div>
+
     </>
   );
 }
