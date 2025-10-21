@@ -23,7 +23,14 @@ export default function AssetForm({ asset, villages, categories = [], onSubmit, 
 
   useEffect(() => {
     if (asset) {
-      setFormData(asset);
+      // แปลง purchase_date เป็นรูปแบบ YYYY-MM-DD สำหรับ input type="date"
+      const formattedAsset = {
+        ...asset,
+        purchaseDate: asset.purchaseDate 
+          ? new Date(asset.purchaseDate).toISOString().split('T')[0] 
+          : ''
+      };
+      setFormData(formattedAsset);
     }
   }, [asset]);
 
@@ -40,7 +47,7 @@ export default function AssetForm({ asset, villages, categories = [], onSubmit, 
       ...prev,
       latitude: lat,
       longitude: lng,
-      locationAddress: address || `${lat.toFixed(6)}, ${lng.toFixed(6)}`
+      locationAddress: address || ''
     }));
     setShowMap(false);
   };
@@ -186,7 +193,7 @@ export default function AssetForm({ asset, villages, categories = [], onSubmit, 
 
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
-          พิกัดตำแหน่งบนแผนที่
+          ที่อยู่ / เลือกตำแหน่งบนแผนที่
         </label>
         <div className="flex gap-2">
           <input
@@ -194,9 +201,8 @@ export default function AssetForm({ asset, villages, categories = [], onSubmit, 
             name="locationAddress"
             value={formData.locationAddress}
             onChange={handleChange}
-            readOnly
-            className="flex-1 px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-600"
-            placeholder="คลิกปุ่ม 'ปักหมุด' เพื่อเลือกตำแหน่งบนแผนที่"
+            className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="ระบุที่อยู่ หรือคลิก 'ปักหมุด' เพื่อเลือกจากแผนที่"
           />
           <button
             type="button"
@@ -215,7 +221,7 @@ export default function AssetForm({ asset, villages, categories = [], onSubmit, 
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
-            <strong>พิกัด:</strong> {formData.latitude.toFixed(6)}, {formData.longitude.toFixed(6)}
+            <strong>พิกัดที่เลือก:</strong> {Number(formData.latitude).toFixed(6)}, {Number(formData.longitude).toFixed(6)}
           </p>
         )}
       </div>

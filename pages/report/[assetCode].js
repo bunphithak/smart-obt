@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
+import SuccessModal from '../../components/SuccessModal';
 
 export default function PublicReportForm() {
   const router = useRouter();
@@ -14,6 +15,7 @@ export default function PublicReportForm() {
   const [isClient, setIsClient] = useState(false);
   const [showAlertModal, setShowAlertModal] = useState(false);
   const [alertData, setAlertData] = useState({ type: 'info', title: '', message: '' });
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
   
   const [formData, setFormData] = useState({
     problemType: '',
@@ -66,10 +68,34 @@ export default function PublicReportForm() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    
+    // Auto-format phone number
+    if (name === 'reporterPhone') {
+      // Remove all non-digits
+      let phone = value.replace(/\D/g, '');
+      
+      // Limit to 10 digits
+      if (phone.length > 10) {
+        phone = phone.slice(0, 10);
+      }
+      
+      // Format as 0XX-XXX-XXXX
+      if (phone.length > 6) {
+        phone = phone.slice(0, 3) + '-' + phone.slice(3, 6) + '-' + phone.slice(6);
+      } else if (phone.length > 3) {
+        phone = phone.slice(0, 3) + '-' + phone.slice(3);
+      }
+      
+      setFormData(prev => ({
+        ...prev,
+        [name]: phone
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+    }
   };
 
   const handleImageUpload = (e) => {
@@ -147,6 +173,7 @@ export default function PublicReportForm() {
       
       if (data.success) {
         setTicketId(data.ticketId);
+        setShowSuccessModal(true);
       } else {
         showAlert('error', 'เกิดข้อผิดพลาด', data.message);
       }
@@ -323,9 +350,15 @@ export default function PublicReportForm() {
                     value={formData.reporterPhone}
                     onChange={handleChange}
                     required
+                    pattern="[0-9]{3}-[0-9]{3}-[0-9]{4}"
                     placeholder="08X-XXX-XXXX"
+                    maxLength="12"
+                    title="กรุณากรอกเบอร์โทรศัพท์ 10 หลัก เช่น 081-234-5678"
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
                   />
+                  <p className="text-xs text-gray-500 mt-1">
+                    รูปแบบ: 0XX-XXX-XXXX (10 หลัก)
+                  </p>
                 </div>
               </div>
 
@@ -399,40 +432,6 @@ export default function PublicReportForm() {
               </button>
             </form>
 
-            {ticketId && (
-              <div className="mt-8 p-8 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl">
-                <div className="text-center">
-                  <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                    <svg className="w-10 h-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                  </div>
-                  <h3 className="text-2xl font-bold text-green-800 mb-4">ส่งรายงานสำเร็จ!</h3>
-                  <p className="text-green-700 mb-6">รหัสติดตามงานของคุณคือ:</p>
-                  <div className="bg-white border-2 border-green-300 rounded-xl p-6 mb-6 shadow-lg">
-                    <p className="text-3xl font-bold text-green-800 font-mono">{ticketId}</p>
-                  </div>
-                  <p className="text-green-700 mb-6 text-lg">
-                    กรุณาบันทึกรหัสนี้ไว้เพื่อติดตามสถานะการดำเนินงาน
-                  </p>
-                  <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                    <button
-                      onClick={() => router.push(`/track/${ticketId}`)}
-                      className="bg-gradient-to-r from-green-500 to-green-600 text-white px-8 py-3 rounded-lg font-semibold hover:from-green-600 hover:to-green-700 transition-all transform hover:scale-105"
-                    >
-                      ตรวจสอบสถานะ
-                    </button>
-                    <button
-                      onClick={() => router.push('/public')}
-                      className="bg-gradient-to-r from-gray-500 to-gray-600 text-white px-8 py-3 rounded-lg font-semibold hover:from-gray-600 hover:to-gray-700 transition-all transform hover:scale-105"
-                    >
-                      กลับหน้าหลัก
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
             <div className="mt-6 text-center text-sm text-gray-600">
               <p>หากมีข้อสงสัย โทร. 0-XXXX-XXXX</p>
               <p className="mt-1">เวลาทำการ: จันทร์-ศุกร์ 08:30-16:30 น.</p>
@@ -496,6 +495,21 @@ export default function PublicReportForm() {
             </div>
           </div>
         )}
+
+        {/* Success Modal */}
+        <SuccessModal
+          isOpen={showSuccessModal}
+          onClose={() => {
+            setShowSuccessModal(false);
+            router.push('/public');
+          }}
+          ticketId={ticketId}
+          reportType="repair"
+          onCheckStatus={() => {
+            setShowSuccessModal(false);
+            router.push(`/track/${ticketId}`);
+          }}
+        />
       </div>
     </>
   );

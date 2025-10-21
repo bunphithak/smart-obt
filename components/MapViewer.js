@@ -25,7 +25,11 @@ export default function MapViewer({
     setMounted(true);
   }, []);
 
-  if (!mounted || !lat || !lng) {
+  // แปลง lat/lng เป็น number
+  const latitude = Number(lat);
+  const longitude = Number(lng);
+
+  if (!mounted || !latitude || !longitude || isNaN(latitude) || isNaN(longitude)) {
     return (
       <div 
         className="w-full bg-gray-100 flex items-center justify-center rounded-lg"
@@ -41,7 +45,7 @@ export default function MapViewer({
   return (
     <div className="w-full rounded-lg overflow-hidden border border-gray-300" style={{ height }}>
       <MapContainer
-        center={[lat, lng]}
+        center={[latitude, longitude]}
         zoom={zoom}
         style={{ height: '100%', width: '100%' }}
         scrollWheelZoom={false}
@@ -52,7 +56,7 @@ export default function MapViewer({
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-        <Marker position={[lat, lng]}>
+        <Marker position={[latitude, longitude]}>
           <Popup>
             <div className="text-sm">
               <strong>{title}</strong>

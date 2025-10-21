@@ -2,8 +2,12 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import dynamic from 'next/dynamic';
 
-// Dynamic import for MapPicker (client-side only)
+// Dynamic import for MapPicker and MapViewer (client-side only)
 const MapPicker = dynamic(() => import('../../components/MapPicker'), {
+  ssr: false,
+});
+
+const MapViewer = dynamic(() => import('../../components/MapViewer'), {
   ssr: false,
 });
 
@@ -16,6 +20,7 @@ export default function RepairDetailPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [technicians, setTechnicians] = useState([]);
   const [showMapPicker, setShowMapPicker] = useState(false);
+  const [isClient, setIsClient] = useState(false);
   
   const [formData, setFormData] = useState({
     title: '',
@@ -31,6 +36,10 @@ export default function RepairDetailPage() {
     latitude: null,
     longitude: null
   });
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   useEffect(() => {
     if (id) {
@@ -52,7 +61,33 @@ export default function RepairDetailPage() {
       
       if (data.success && data.data) {
         const repairData = data.data;
-        setRepair(repairData);
+        
+        // Parse coordinates from location JSON string
+        let parsedLocation = '';
+        let parsedLatitude = repairData.latitude;
+        let parsedLongitude = repairData.longitude;
+        
+        if (repairData.location && typeof repairData.location === 'string') {
+          try {
+            const locationObj = JSON.parse(repairData.location);
+            if (locationObj.latitude && locationObj.longitude) {
+              parsedLatitude = locationObj.latitude;
+              parsedLongitude = locationObj.longitude;
+              parsedLocation = `${locationObj.latitude}, ${locationObj.longitude}`;
+            }
+          } catch (e) {
+            // If not JSON, use as string
+            parsedLocation = repairData.location;
+          }
+        }
+        
+        setRepair({
+          ...repairData,
+          location: parsedLocation,
+          latitude: parsedLatitude,
+          longitude: parsedLongitude
+        });
+        
         setFormData({
           title: repairData.title || '',
           description: repairData.description || '',
@@ -63,9 +98,9 @@ export default function RepairDetailPage() {
           actualCost: repairData.actualCost || '',
           dueDate: repairData.dueDate ? repairData.dueDate.split('T')[0] : '',
           notes: repairData.notes || '',
-          location: repairData.location || '',
-          latitude: repairData.latitude || null,
-          longitude: repairData.longitude || null
+          location: parsedLocation,
+          latitude: parsedLatitude,
+          longitude: parsedLongitude
         });
       }
       setLoading(false);
@@ -311,13 +346,16 @@ export default function RepairDetailPage() {
                     <option value="">-- เลือกช่าง --</option>
                     {technicians.map((tech) => (
                       <option key={tech.id} value={tech.id}>
-                        {tech.name}
+                        {tech.fullName}
                       </option>
                     ))}
                   </select>
                 ) : (
                   <p className="text-gray-900">
-                    {repair.assignedTo || <span className="text-orange-600 font-medium">รอจ่ายงาน</span>}
+                    {repair.assignedTo ? 
+                      technicians.find(tech => tech.id === repair.assignedTo)?.fullName || repair.assignedTo
+                      : <span className="text-orange-600 font-medium">รอจ่ายงาน</span>
+                    }
                   </p>
                 )}
               </div>
@@ -384,40 +422,37 @@ export default function RepairDetailPage() {
 
           {/* Location */}
           <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
-            <h2 className="text-lg font-semibold mb-4">ตำแหน่ง</h2>
+            <h2 className="text-lg font-semibold mb-4">📍 ตำแหน่งที่แจ้ง</h2>
             
             <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  สถานที่
-                </label>
-                {isEditing ? (
-                  <div className="flex space-x-2">
-                    <input
-                      type="text"
-                      value={formData.location}
-                      onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="ระบุสถานที่"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowMapPicker(true)}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                    >
-                      🗺️ แผนที่
-                    </button>
-                  </div>
-                ) : (
-                  <p className="text-gray-900">{repair.location || '-'}</p>
-                )}
+              <div className="space-y-2">
+                <p className="text-sm text-gray-600">
+                  <span className="font-medium">สถานที่:</span> {repair.assetName || repair.location || 'ไม่ระบุ'}
+                </p>
+                <p className="text-sm text-gray-600">
+                  <span className="font-medium">พิกัด:</span> {Number(repair.latitude || 0).toFixed(6)}, {Number(repair.longitude || 0).toFixed(6)}
+                </p>
               </div>
-
-              {(formData.latitude && formData.longitude) && (
-                <div className="text-sm text-gray-600">
-                  📍 พิกัด: {formData.latitude}, {formData.longitude}
-                </div>
+              
+              {/* Map Display - แผนที่แบบดูอย่างเดียว */}
+              {isClient && repair.latitude && repair.longitude && (
+                <MapViewer
+                  lat={Number(repair.latitude)}
+                  lng={Number(repair.longitude)}
+                  title={repair.title}
+                  description={repair.location}
+                  height="320px"
+                />
               )}
+              
+              <a
+                href={`https://www.google.com/maps?q=${repair.latitude},${repair.longitude}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-sm"
+              >
+                🗺️ เปิดใน Google Maps
+              </a>
             </div>
           </div>
 

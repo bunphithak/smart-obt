@@ -450,4 +450,13 @@ async function handler(req, res) {
 }
 
 // Protect with JWT authentication (admin or technician roles)
-export default withAuth(handler, { roles: ['admin', 'technician'] });
+// แต่ให้ GET /api/users?role=technician ไม่ต้อง authentication สำหรับหน้า repair
+export default async function handlerWrapper(req, res) {
+  // ถ้าเป็น GET request และมี role=technician ให้ไม่ต้อง authentication
+  if (req.method === 'GET' && req.query.role === 'technician') {
+    return handler(req, res);
+  }
+  
+  // สำหรับ request อื่นๆ ให้ใช้ authentication
+  return withAuth(handler, { roles: ['admin', 'technician'] })(req, res);
+}

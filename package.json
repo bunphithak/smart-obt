@@ -7,7 +7,12 @@
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:create": "node scripts/create-database.js",
+    "db:migrate": "node scripts/run-migrations.js",
+    "db:setup": "npm run db:create && npm run db:migrate && npm run create-admin",
+    "migrate": "node scripts/run-migrations.js",
+    "create-admin": "node scripts/create-admin.js"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.3.1",

@@ -370,7 +370,7 @@ export default async function handler(req, res) {
           updateDescription?.trim(),
           updateStatus,
           updateValue ? parseFloat(updateValue) : null,
-          updatePurchaseDate,
+          updatePurchaseDate || null,
           updateLocationName?.trim(),
           updateLocationAddress?.trim(),
           updateLatitude ? parseFloat(updateLatitude) : null,

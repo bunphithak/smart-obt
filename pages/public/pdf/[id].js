@@ -68,7 +68,7 @@ export default function PDFReport() {
         }
         #print-section {
           margin: 0 !important;
-          padding: 20mm 20mm 20mm 20mm !important;
+          padding: 10mm 20mm 20mm 20mm !important;
           position: absolute !important;
           top: 0 !important;
           left: 0 !important;
@@ -215,7 +215,7 @@ export default function PDFReport() {
             background: white;
             width: 210mm; /* A4 width */
             min-height: 297mm; /* A4 height */
-            padding: 20mm 20mm 20mm 20mm; /* top, right, bottom, left */
+            padding: 10mm 20mm 20mm 20mm; /* top, right, bottom, left */
             margin: 0 auto;
             font-family: "Sarabun", "Tahoma", sans-serif;
             font-size: 14px;
@@ -329,6 +329,14 @@ export default function PDFReport() {
               margin: 16px 0 !important;
               border-radius: 8px !important;
             }
+
+            /* CSS สำหรับ logo ใน print */
+            #print-section img {
+              display: block !important;
+              margin: 0 auto !important;
+              max-width: 96px !important;
+              max-height: 96px !important;
+            }
           }
         `}</style>
       </Head>
@@ -369,11 +377,22 @@ export default function PDFReport() {
             <div id="print-section" className="print">
               {/* Header */}
               <div className="mb-8">
-                <h1 className="text-2xl font-bold text-center mb-8">
+                {/* Logo */}
+                <div className="flex items-center justify-center mb-6">
+                  <div className="text-center">
+                    <img 
+                      src="/images/abt-logo.png" 
+                      alt="Logo อบต.ละหาร" 
+                      className="w-24 h-24 mx-auto mb-2"
+                    />
+                  </div>
+                </div>
+
+                <h1 className="text-2xl font-bold text-center mb-4">
                   คำร้องแจ้งซ่อม/ติดตั้งระบบไฟฟ้า
                 </h1>
 
-                <div className="text-right mb-6 normal-line-height">
+                <div className="text-right mb-4 normal-line-height">
                   <p>เขียนที่ กองช่าง องค์การบริหารส่วนตำบลละหาร</p>
                   <p>
                     วันที่{" "}
@@ -386,7 +405,7 @@ export default function PDFReport() {
                 </div>
               </div>
               {/* Content */}
-              <div className="space-y-4 mb-6">
+              <div className="space-y-4 mb-4">
                 <div className="flex items-center">
                   <span className="font-bold mr-4">เรื่อง</span>
                   <span className="mr-4">
@@ -429,7 +448,11 @@ export default function PDFReport() {
                         : "เพิ่มจุดติดตั้งไฟฟ้าสาธารณะ บริเวณ"}
                     </span>
                     <span className="border-b border-black border-dashed px-2 ml-2 min-w-[400px]">
-                      {report.location || "ไม่ระบุ"}
+                      {report.assetCode && report.assetLocation 
+                        ? report.assetLocation 
+                        : (report.location && typeof report.location === 'string' && !report.location.includes('latitude')
+                            ? report.location 
+                            : 'ไม่ระบุ')}
                     </span>
                   </div>
                 </div>

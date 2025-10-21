@@ -108,6 +108,11 @@ export default function ReportDetailPage() {
 
   const closeAlert = () => {
     setShowAlertModal(false);
+    
+    // ถ้ามีการสร้างงานซ่อม ให้ redirect ไปหน้า repairs
+    if (alertData.message && alertData.message.includes('สร้างงานซ่อมแล้ว')) {
+      router.push('/repairs');
+    }
   };
 
   const handleUpdateStatus = async () => {
@@ -147,14 +152,6 @@ export default function ReportDetailPage() {
         showAlert('success', 'อัปเดตสำเร็จ', message);
         fetchReportDetail();
         setShowUpdateModal(false);
-        
-        // ถ้ามีการสร้างงานซ่อม เปลี่ยนเส้นทางไปหน้าจัดการงานซ่อมหลัง 2 วินาที
-        if (data.repairId) {
-          console.log('🔄 Redirecting to /repairs in 2 seconds...');
-          setTimeout(() => {
-            router.push('/repairs');
-          }, 2000);
-        }
       } else {
         console.error('❌ Update failed:', data.error);
         showAlert('error', 'เกิดข้อผิดพลาด', data.error);
@@ -324,16 +321,6 @@ export default function ReportDetailPage() {
                   </div>
                 )}
 
-                {report.location && (
-                  <div>
-                    <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                      สถานที่
-                    </label>
-                    <p className="text-gray-800 dark:text-white">
-                      {typeof report.location === 'string' ? report.location : JSON.stringify(report.location)}
-                    </p>
-                  </div>
-                )}
 
                 <div>
                   <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
@@ -392,21 +379,25 @@ export default function ReportDetailPage() {
                 </h3>
                 <div className="space-y-4">
                   <div className="space-y-2">
+                    {(report.assetLocation || (report.location && typeof report.location === 'string' && !report.location.includes('latitude'))) && (
+                      <div>
+                        <p className="text-sm text-gray-600">
+                          <span className="font-medium">สถานที่:</span> {report.assetLocation || report.location}
+                        </p>
+                      </div>
+                    )}
                     <p className="text-sm text-gray-600">
-                      <span className="font-medium">สถานที่:</span> {report.location || 'ไม่ระบุ'}
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      <span className="font-medium">พิกัด:</span> {report.coordinates.lat.toFixed(6)}, {report.coordinates.lng.toFixed(6)}
+                      <span className="font-medium">พิกัด:</span> {Number(report.coordinates.lat).toFixed(6)}, {Number(report.coordinates.lng).toFixed(6)}
                     </p>
                   </div>
                   
                   {/* Map Display - แผนที่แบบดูอย่างเดียว */}
                   {isClient && (
                     <MapViewer
-                      lat={report.coordinates.lat}
-                      lng={report.coordinates.lng}
-                      title={report.title}
-                      description={report.location}
+                      lat={Number(report.coordinates.lat)}
+                      lng={Number(report.coordinates.lng)}
+                      title={report.title || report.problemType}
+                      description={report.assetLocation || report.location}
                       height="320px"
                     />
                   )}
@@ -459,20 +450,22 @@ export default function ReportDetailPage() {
               </div>
             </div>
 
-            {/* Actions Card */}
-            <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] p-6">
-              <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">
-                การดำเนินการ
-              </h3>
-              <div className="space-y-3">
-                <button
-                  onClick={() => setShowUpdateModal(true)}
-                  className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                >
-                  พิจรณา
-                </button>
+            {/* Actions Card - แสดงเฉพาะเมื่อสถานะยังไม่ได้รับการอนุมัติ/ไม่อนุมัติ */}
+            {report.status !== 'อนุมัติ' && report.status !== 'ไม่อนุมัติ' && (
+              <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] p-6">
+                <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">
+                  การดำเนินการ
+                </h3>
+                <div className="space-y-3">
+                  <button
+                    onClick={() => setShowUpdateModal(true)}
+                    className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  >
+                    พิจรณา
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
 

@@ -74,6 +74,9 @@ export default async function handler(req, res) {
               startDate: repair.start_date,
               completedDate: repair.completed_date,
               notes: repair.notes,
+              location: repair.location,
+              latitude: repair.latitude,
+              longitude: repair.longitude,
               images: repair.images || [],
               createdAt: repair.created_at,
               updatedAt: repair.updated_at

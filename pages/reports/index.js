@@ -1,5 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
+import { 
+  getReportStatus, 
+  getPriority 
+} from '../../lib/masterData';
 
 export default function ReportsPage() {
   const router = useRouter();
@@ -10,9 +14,30 @@ export default function ReportsPage() {
   const [activeTab, setActiveTab] = useState('repair');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
+  
+  // Enums from API
+  const [reportStatusList, setReportStatusList] = useState([]);
+  const [priorityList, setPriorityList] = useState([]);
 
   useEffect(() => {
     setIsClient(true);
+  }, []);
+
+  // โหลด enums จาก API
+  useEffect(() => {
+    const loadEnums = async () => {
+      try {
+        const [statusList, priList] = await Promise.all([
+          getReportStatus(),
+          getPriority(),
+        ]);
+        setReportStatusList(statusList);
+        setPriorityList(priList);
+      } catch (error) {
+        console.error('Error loading enums:', error);
+      }
+    };
+    loadEnums();
   }, []);
 
   useEffect(() => {
@@ -216,23 +241,14 @@ export default function ReportsPage() {
     router.push(`/reports/${report.id}`);
   };
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'รอดำเนินการ': return 'bg-yellow-100 text-yellow-800';
-      case 'อนุมัติ': return 'bg-green-100 text-green-800';
-      case 'ไม่อนุมัติ': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
+  const getReportStatusColorClass = (status) => {
+    const item = reportStatusList.find(s => s.value === status);
+    return item?.color?.badge || 'bg-gray-100 text-gray-800';
   };
 
-  const getPriorityColor = (priority) => {
-    switch (priority) {
-      case 'ต่ำ': return 'text-green-600';
-      case 'ปานกลาง': return 'text-yellow-600';
-      case 'สูง': return 'text-orange-600';
-      case 'ฉุกเฉิน': return 'text-red-600';
-      default: return 'text-gray-600';
-    }
+  const getPriorityColorClass = (priority) => {
+    const item = priorityList.find(p => p.value === priority);
+    return item?.color?.primary || 'text-gray-600';
   };
 
   const filteredReports = reports.filter(report => {
@@ -378,10 +394,11 @@ export default function ReportsPage() {
             className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="">ทุกสถานะ</option>
-            <option value="รอดำเนินการ">รอดำเนินการ</option>
-            <option value="กำลังดำเนินการ">กำลังดำเนินการ</option>
-            <option value="เสร็จสิ้น">เสร็จสิ้น</option>
-            <option value="ยกเลิก">ยกเลิก</option>
+            {reportStatusList.map(status => (
+              <option key={status.value} value={status.value}>
+                {status.label}
+              </option>
+            ))}
           </select>
         </div>
       </div>
@@ -394,24 +411,17 @@ export default function ReportsPage() {
             {reports.filter(r => r.reportType === activeTab).length}
           </p>
         </div>
-        <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
-          <p className="text-sm text-gray-500 dark:text-gray-400">รอดำเนินการ</p>
-          <p className="mt-2 text-2xl font-bold text-yellow-600 dark:text-yellow-400">
-            {reports.filter(r => r.reportType === activeTab && r.status === 'รอดำเนินการ').length}
-          </p>
-        </div>
-        <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
-          <p className="text-sm text-gray-500 dark:text-gray-400">ไม่อนุมัติ</p>
-          <p className="mt-2 text-2xl font-bold text-blue-600 dark:text-blue-400">
-            {reports.filter(r => r.reportType === activeTab && r.status === 'ไม่อนุมัติ').length}
-          </p>
-        </div>
-        <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
-          <p className="text-sm text-gray-500 dark:text-gray-400">อนุมัติ</p>
-          <p className="mt-2 text-2xl font-bold text-green-600 dark:text-green-400">
-            {reports.filter(r => r.reportType === activeTab && r.status === 'อนุมัติ').length}
-          </p>
-        </div>
+        {reportStatusList.slice(0, 3).map((status, index) => {
+          const colorClasses = ['text-yellow-600', 'text-red-600', 'text-green-600'];
+          return (
+            <div key={status.value} className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+              <p className="text-sm text-gray-500 dark:text-gray-400">{status.label}</p>
+              <p className={`mt-2 text-2xl font-bold ${colorClasses[index]} dark:${colorClasses[index].replace('text-', 'text-')}`}>
+                {reports.filter(r => r.reportType === activeTab && r.status === status.value).length}
+              </p>
+            </div>
+          );
+        })}
       </div>
 
       {/* Reports Table */}
@@ -466,10 +476,10 @@ export default function ReportsPage() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center space-x-2">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(report.status)}`}>
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getReportStatusColorClass(report.status)}`}>
                         {report.status}
                       </span>
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(report.priority)}`}>
+                      <span className={`text-xs font-medium ${getPriorityColorClass(report.priority)}`}>
                         {report.priority}
                       </span>
                     </div>

@@ -360,9 +360,16 @@ export default async function handler(req, res) {
               r.*,
               a.name as asset_name,
               a.code as asset_code,
+              a.status as asset_status,
+              a.location_name as asset_location,
+              a.location_address as asset_address,
+              a.latitude as asset_latitude,
+              a.longitude as asset_longitude,
+              c.name as asset_category_name,
               v.name as village_name
             FROM reports r
             LEFT JOIN assets a ON r.asset_code = a.code
+            LEFT JOIN categories c ON a.category_id = c.id
             LEFT JOIN villages v ON a.village_id = v.id
             WHERE r.id = $1
           `, [id]);
@@ -375,13 +382,27 @@ export default async function handler(req, res) {
           }
 
           const report = result.rows[0];
+          
+          // ใช้พิกัดจาก asset ถ้ามี ไม่งั้นใช้จาก report
+          const displayCoordinates = report.asset_latitude && report.asset_longitude 
+            ? { lat: report.asset_latitude, lng: report.asset_longitude }
+            : report.coordinates;
+          
           res.status(200).json({ 
             success: true, 
             data: {
               id: report.id,
               ticketId: report.ticket_id,
+              // ข้อมูลทรัพย์สิน (จาก assets table)
               assetCode: report.asset_code,
               assetName: report.asset_name,
+              assetLocation: report.asset_location,
+              assetAddress: report.asset_address,
+              assetCategoryName: report.asset_category_name,
+              assetStatus: report.asset_status,
+              assetLatitude: report.asset_latitude,
+              assetLongitude: report.asset_longitude,
+              // ข้อมูลรายงาน
               villageName: report.village_name,
               reportType: report.report_type,
               problemType: report.problem_type,
@@ -394,7 +415,7 @@ export default async function handler(req, res) {
               reportedAt: report.reported_at,
               images: report.images || [],
               location: report.location,
-              coordinates: report.coordinates, // ✅ เพิ่ม coordinates
+              coordinates: displayCoordinates, // ✅ ใช้พิกัดจาก asset ถ้ามี
               createdAt: report.created_at,
               updatedAt: report.updated_at
             }
@@ -711,6 +732,23 @@ export default async function handler(req, res) {
         break;
 
       case 'PUT':
+        // Parse JSON body สำหรับ PUT request
+        let requestBody;
+        try {
+          const chunks = [];
+          for await (const chunk of req) {
+            chunks.push(chunk);
+          }
+          const body = Buffer.concat(chunks).toString();
+          requestBody = JSON.parse(body);
+        } catch (error) {
+          console.error('❌ Error parsing PUT request body:', error);
+          return res.status(400).json({ 
+            success: false, 
+            error: 'ข้อมูลที่ส่งมาไม่ถูกต้อง' 
+          });
+        }
+
         const { 
           id: updateId, 
           status: updateStatus, 
@@ -719,7 +757,7 @@ export default async function handler(req, res) {
           images: updateImages,
           note: updateNote,
           rejectionReason: updateRejectionReason
-        } = req.body;
+        } = requestBody;
 
         if (!updateId) {
           return res.status(400).json({ 
@@ -818,7 +856,7 @@ export default async function handler(req, res) {
               updatedReport.location,
               lat,
               lng,
-              updatedReport.images
+              JSON.stringify(updatedReport.images || []) // ✅ แปลง array เป็น JSON string
             ]);
 
             console.log('✅ Repair job created:', repairResult.rows[0].id);

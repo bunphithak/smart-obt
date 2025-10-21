@@ -394,7 +394,7 @@ export default function CreateRepairModal({ isOpen, onClose, reportId, onSuccess
                 </div>
                 {coordinates && (
                   <div className="mt-2 text-sm text-gray-600">
-                    <strong>พิกัด:</strong> {coordinates.lat.toFixed(6)}, {coordinates.lng.toFixed(6)}
+                    <strong>พิกัด:</strong> {Number(coordinates.lat).toFixed(6)}, {Number(coordinates.lng).toFixed(6)}
                   </div>
                 )}
               </div>
