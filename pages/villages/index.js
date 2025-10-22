@@ -19,6 +19,7 @@ export default function VillagesPage() {
   // Modal states
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [villageToDelete, setVillageToDelete] = useState(null);
+  const [confirmData, setConfirmData] = useState({ message: '', onConfirm: null, isDelete: false });
   const [showAlertModal, setShowAlertModal] = useState(false);
   const [alertData, setAlertData] = useState({ type: 'success', title: '', message: '' }); // แสดง 12 รายการต่อหน้า
   const [formData, setFormData] = useState({
@@ -58,58 +59,69 @@ export default function VillagesPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    try {
-      const method = editingVillage ? 'PUT' : 'POST';
-      
-      // Prepare data with location as JSONB
-      const payload = {
-        name: formData.name,
-        villageCode: formData.villageCode,
-        description: formData.description || `หมู่ ${formData.villageNumber} ${formData.name}`,
-        location: {
-          villageNumber: formData.villageNumber,
-          villageName: formData.name,
-          subdistrict: formData.subdistrict,
-          district: formData.district,
-          province: formData.province,
-          postalCode: formData.postalCode
-        },
-        isActive: true
-      };
+    // Show confirmation
+    const action = editingVillage ? 'แก้ไข' : 'เพิ่ม';
+    setConfirmData({
+      message: `ต้องการ${action}หมู่บ้าน "${formData.name}" ใช่หรือไม่?`,
+      isDelete: false,
+      onConfirm: async () => {
+        try {
+          const method = editingVillage ? 'PUT' : 'POST';
+          
+          // Prepare data with location as JSONB
+          const payload = {
+            name: formData.name,
+            villageCode: formData.villageCode,
+            description: formData.description || `หมู่ ${formData.villageNumber} ${formData.name}`,
+            location: {
+              villageNumber: formData.villageNumber,
+              villageName: formData.name,
+              subdistrict: formData.subdistrict,
+              district: formData.district,
+              province: formData.province,
+              postalCode: formData.postalCode
+            },
+            isActive: true
+          };
 
-      if (editingVillage) {
-        payload.id = editingVillage.id;
+          if (editingVillage) {
+            payload.id = editingVillage.id;
+          }
+
+          const res = await apiCall('/api/villages', {
+            method,
+            body: JSON.stringify(payload)
+          });
+
+          const result = await res.json();
+
+          if (result.success) {
+            showAlert('สำเร็จ', editingVillage ? 'แก้ไขหมู่บ้านสำเร็จ' : 'เพิ่มหมู่บ้านสำเร็จ', 'success');
+            setShowForm(false);
+            setEditingVillage(null);
+            setFormData({
+              name: '',
+              villageCode: '',
+              villageNumber: '',
+              subdistrict: 'ละหาร',
+              district: 'ปลวกแดง',
+              province: 'ระยอง',
+              postalCode: '21140',
+              description: ''
+            });
+            fetchVillages();
+          } else {
+            showAlert('ข้อผิดพลาด', result.error, 'error');
+          }
+        } catch (error) {
+          showAlert('ข้อผิดพลาด', 'ไม่สามารถบันทึกได้', 'error');
+          console.error(error);
+        } finally {
+          setShowConfirmModal(false);
+        }
       }
-
-      const res = await apiCall('/api/villages', {
-        method,
-        body: JSON.stringify(payload)
-      });
-
-      const result = await res.json();
-
-      if (result.success) {
-        showAlert('สำเร็จ', editingVillage ? 'แก้ไขหมู่บ้านสำเร็จ' : 'เพิ่มหมู่บ้านสำเร็จ', 'success');
-        setShowForm(false);
-        setEditingVillage(null);
-        setFormData({
-          name: '',
-          villageCode: '',
-          villageNumber: '',
-          subdistrict: 'ละหาร',
-          district: 'ปลวกแดง',
-          province: 'ระยอง',
-          postalCode: '21140',
-          description: ''
-        });
-        fetchVillages();
-      } else {
-        showAlert('ข้อผิดพลาด', result.error, 'error');
-      }
-    } catch (error) {
-      showAlert('ข้อผิดพลาด', 'ไม่สามารถบันทึกได้', 'error');
-      console.error(error);
-    }
+    });
+    setShowConfirmModal(true);
   };
 
   const handleEdit = (village) => {
@@ -129,6 +141,11 @@ export default function VillagesPage() {
 
   const handleDeleteClick = (village) => {
     setVillageToDelete(village);
+    setConfirmData({
+      message: `คุณต้องการลบหมู่บ้าน "${village.name}" ใช่หรือไม่?`,
+      isDelete: true,
+      onConfirm: handleDeleteConfirm
+    });
     setShowConfirmModal(true);
   };
 
@@ -641,13 +658,14 @@ export default function VillagesPage() {
         onClose={() => {
           setShowConfirmModal(false);
           setVillageToDelete(null);
+          setConfirmData({ message: '', onConfirm: null, isDelete: false });
         }}
-        onConfirm={handleDeleteConfirm}
-        title="ยืนยันการลบ"
-        message={`คุณต้องการลบหมู่บ้าน "${villageToDelete?.name}" ใช่หรือไม่?`}
-        confirmText="ลบ"
+        onConfirm={confirmData.onConfirm}
+        title={confirmData.isDelete ? "ยืนยันการลบ" : "ยืนยันการบันทึก"}
+        message={confirmData.message}
+        confirmText={confirmData.isDelete ? "ลบ" : "บันทึก"}
         cancelText="ยกเลิก"
-        type="danger"
+        type={confirmData.isDelete ? "danger" : "info"}
       />
 
       {/* Alert Modal */}

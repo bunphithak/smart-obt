@@ -1,6 +1,7 @@
 // Repairs Complete API - Connected to PostgreSQL Database
 require('dotenv').config({ path: '.env.local' });
 const { Pool } = require('pg');
+const { REPAIR_STATUS } = require('../../../lib/constants');
 
 const pool = new Pool({
   host: process.env.DB_HOST || 'localhost',
@@ -56,11 +57,11 @@ export default async function handler(req, res) {
     }
 
     // Validate status
-    const validStatuses = ['เสร็จสิ้น', 'ยกเลิก', 'รอตรวจสอบ'];
+    const validStatuses = [REPAIR_STATUS.COMPLETED, REPAIR_STATUS.CANCELLED];
     if (status && !validStatuses.includes(status)) {
       return res.status(400).json({
         success: false,
-        error: 'สถานะไม่ถูกต้อง ต้องเป็น: เสร็จสิ้น, ยกเลิก, หรือ รอตรวจสอบ'
+        error: 'สถานะไม่ถูกต้อง'
       });
     }
 
@@ -86,7 +87,7 @@ export default async function handler(req, res) {
       RETURNING *
     `, [
       id,
-      status || 'เสร็จสิ้น',
+      status || REPAIR_STATUS.COMPLETED,
       actualCost ? parseFloat(actualCost) : null,
       completedDate || new Date().toISOString(),
       notes?.trim() || '',
@@ -94,15 +95,15 @@ export default async function handler(req, res) {
     ]);
 
     // Update related report status if repair is completed
-    if (status === 'เสร็จสิ้น') {
+    if (status === REPAIR_STATUS.COMPLETED) {
       await pool.query(`
         UPDATE reports 
-        SET status = 'เสร็จสิ้น',
+        SET status = $1,
             updated_at = NOW()
         WHERE id = (
-          SELECT report_id FROM repairs WHERE id = $1
+          SELECT report_id FROM repairs WHERE id = $2
         )
-      `, [id]);
+      `, [REPAIR_STATUS.COMPLETED, id]);
     }
 
     const updatedRepair = updateResult.rows[0];

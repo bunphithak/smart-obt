@@ -14,7 +14,7 @@ export default function UsersPage() {
   const [editingUser, setEditingUser] = useState(null);
   const [filter, setFilter] = useState({ role: '', status: '' });
   const [alertModal, setAlertModal] = useState({ isOpen: false, message: '', type: 'success' });
-  const [confirmModal, setConfirmModal] = useState({ isOpen: false, message: '', onConfirm: null });
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, message: '', onConfirm: null, title: '', confirmText: '', type: 'info' });
 
   useEffect(() => {
     fetchData();
@@ -49,47 +49,63 @@ export default function UsersPage() {
   };
 
   const handleSubmit = async (formData) => {
-    try {
-      const method = editingUser ? 'PUT' : 'POST';
-      const data = editingUser ? { ...formData, id: editingUser.id } : formData;
+    // Show confirmation
+    const action = editingUser ? 'แก้ไข' : 'เพิ่ม';
+    setConfirmModal({
+      isOpen: true,
+      title: 'ยืนยันการบันทึก',
+      message: `ต้องการ${action}ผู้ใช้ "${formData.fullName}" ใช่หรือไม่?`,
+      confirmText: 'บันทึก',
+      type: 'info',
+      onConfirm: async () => {
+        try {
+          const method = editingUser ? 'PUT' : 'POST';
+          const data = editingUser ? { ...formData, id: editingUser.id } : formData;
 
-      const res = await apiCall('/api/users', {
-        method,
-        body: JSON.stringify(data)
-      });
+          const res = await apiCall('/api/users', {
+            method,
+            body: JSON.stringify(data)
+          });
 
-      const result = await res.json();
+          const result = await res.json();
 
-      if (result.success) {
-        setAlertModal({
-          isOpen: true,
-          message: editingUser ? 'แก้ไขข้อมูลผู้ใช้สำเร็จ' : 'เพิ่มผู้ใช้สำเร็จ',
-          type: 'success'
-        });
-        setShowForm(false);
-        setEditingUser(null);
-        fetchData();
-      } else {
-        setAlertModal({
-          isOpen: true,
-          message: 'เกิดข้อผิดพลาด: ' + result.error,
-          type: 'error'
-        });
+          if (result.success) {
+            setAlertModal({
+              isOpen: true,
+              message: editingUser ? 'แก้ไขข้อมูลผู้ใช้สำเร็จ' : 'เพิ่มผู้ใช้สำเร็จ',
+              type: 'success'
+            });
+            setShowForm(false);
+            setEditingUser(null);
+            fetchData();
+          } else {
+            setAlertModal({
+              isOpen: true,
+              message: 'เกิดข้อผิดพลาด: ' + result.error,
+              type: 'error'
+            });
+          }
+        } catch (error) {
+          setAlertModal({
+            isOpen: true,
+            message: 'ไม่สามารถบันทึกได้ กรุณาลองใหม่อีกครั้ง',
+            type: 'error'
+          });
+          console.error(error);
+        } finally {
+          setConfirmModal({ isOpen: false, message: '', onConfirm: null, title: '', confirmText: '', type: 'info' });
+        }
       }
-    } catch (error) {
-      setAlertModal({
-        isOpen: true,
-        message: 'ไม่สามารถบันทึกได้ กรุณาลองใหม่อีกครั้ง',
-        type: 'error'
-      });
-      console.error(error);
-    }
+    });
   };
 
   const handleDelete = async (user) => {
     setConfirmModal({
       isOpen: true,
+      title: 'ยืนยันการลบ',
       message: `ต้องการลบผู้ใช้ "${user.fullName}" ออกจากระบบใช่หรือไม่? สามารถกู้คืนได้ในภายหลัง`,
+      confirmText: 'ลบ',
+      type: 'danger',
       onConfirm: async () => {
         try {
           const res = await apiCall(`/api/users?id=${user.id}`, { method: 'DELETE' });
@@ -362,13 +378,13 @@ export default function UsersPage() {
       {/* Confirm Modal */}
       <ConfirmModal
         isOpen={confirmModal.isOpen}
-        onClose={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+        onClose={() => setConfirmModal({ isOpen: false, message: '', onConfirm: null, title: '', confirmText: '', type: 'info' })}
         onConfirm={confirmModal.onConfirm}
-        title="ยืนยันการลบ"
+        title={confirmModal.title}
         message={confirmModal.message}
-        confirmText="ลบ"
+        confirmText={confirmModal.confirmText}
         cancelText="ยกเลิก"
-        type="danger"
+        type={confirmModal.type}
       />
     </div>
   );

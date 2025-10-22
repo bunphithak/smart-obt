@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import AlertModal from './AlertModal';
+import { PRIORITY, PRIORITY_LABELS, ASSET_STATUS_LABELS } from '../lib/constants';
 import dynamic from 'next/dynamic';
 
 // Dynamic import for MapPicker to avoid SSR issues
@@ -26,7 +27,7 @@ export default function CreateRepairModal({ isOpen, onClose, reportId, onSuccess
     title: '',
     description: '',
     assignedTo: '',
-    priority: 'ปานกลาง',
+    priority: PRIORITY.MEDIUM,
     estimatedCost: '',
     dueDate: '',
     notes: '',
@@ -69,7 +70,7 @@ export default function CreateRepairModal({ isOpen, onClose, reportId, onSuccess
           ...prev,
           title: reportData.problemType || reportData.title || '',
           description: reportData.description || '',
-          priority: reportData.priority || 'ปานกลาง'
+          priority: reportData.priority || PRIORITY.MEDIUM
         }));
       }
     } catch (error) {
@@ -118,6 +119,13 @@ export default function CreateRepairModal({ isOpen, onClose, reportId, onSuccess
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Validate: ต้องมีช่างผู้รับผิดชอบ
+    if (!formData.assignedTo) {
+      showAlert('error', 'ไม่สามารถบันทึกได้', 'กรุณาระบุช่างผู้รับผิดชอบ');
+      return;
+    }
+    
     setSubmitting(true);
 
     try {
@@ -202,7 +210,7 @@ export default function CreateRepairModal({ isOpen, onClose, reportId, onSuccess
                 <p className="text-blue-800 text-sm">
                   <strong>หัวข้อ:</strong> {report.title || report.problemType}<br/>
                   <strong>รายละเอียด:</strong> {report.description}<br/>
-                  <strong>ความสำคัญ:</strong> {report.priority}
+                  <strong>ความสำคัญ:</strong> {PRIORITY_LABELS[report.priority] || report.priority}
                 </p>
               </div>
             )}
@@ -273,7 +281,7 @@ export default function CreateRepairModal({ isOpen, onClose, reportId, onSuccess
                     <div><strong>รหัส:</strong> {assetInfo.code}</div>
                     <div><strong>หมวดหมู่:</strong> {assetInfo.category}</div>
                     <div><strong>หมู่บ้าน:</strong> {assetInfo.villageName}</div>
-                    <div><strong>สถานะ:</strong> {assetInfo.status}</div>
+                    <div><strong>สถานะ:</strong> {ASSET_STATUS_LABELS[assetInfo.status] || assetInfo.status}</div>
                     <div><strong>ตำแหน่ง:</strong> {assetInfo.locationName || 'ไม่ระบุ'}</div>
                   </div>
                   {assetInfo.description && (
@@ -329,10 +337,10 @@ export default function CreateRepairModal({ isOpen, onClose, reportId, onSuccess
                     onChange={handleChange}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="ต่ำ">ต่ำ</option>
-                    <option value="ปานกลาง">ปานกลาง</option>
-                    <option value="สูง">สูง</option>
-                    <option value="ฉุกเฉิน">ฉุกเฉิน</option>
+                    <option value={PRIORITY.LOW}>{PRIORITY_LABELS[PRIORITY.LOW]}</option>
+                    <option value={PRIORITY.MEDIUM}>{PRIORITY_LABELS[PRIORITY.MEDIUM]}</option>
+                    <option value={PRIORITY.HIGH}>{PRIORITY_LABELS[PRIORITY.HIGH]}</option>
+                    <option value={PRIORITY.URGENT}>{PRIORITY_LABELS[PRIORITY.URGENT]}</option>
                   </select>
                 </div>
               </div>

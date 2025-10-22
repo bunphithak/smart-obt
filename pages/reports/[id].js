@@ -3,6 +3,15 @@ import { useRouter } from 'next/router';
 import Head from 'next/head';
 import Image from 'next/image';
 import dynamic from 'next/dynamic';
+import ConfirmModal from '../../components/ConfirmModal';
+import { 
+  REPORT_STATUS, 
+  REPORT_STATUS_LABELS, 
+  PRIORITY, 
+  PRIORITY_LABELS,
+  getReportStatusColor,
+  getPriorityColor 
+} from '../../lib/constants';
 
 // Dynamic import for MapViewer (client-side only) - แผนที่แบบดูอย่างเดียว
 const MapViewer = dynamic(() => import('../../components/MapViewer'), {
@@ -28,6 +37,8 @@ export default function ReportDetailPage() {
   const [alertData, setAlertData] = useState({ type: 'info', title: '', message: '' });
   const [selectedImage, setSelectedImage] = useState(null);
   const [showImageModal, setShowImageModal] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [confirmData, setConfirmData] = useState({ message: '', onConfirm: null });
 
   useEffect(() => {
     setIsClient(true);
@@ -116,50 +127,60 @@ export default function ReportDetailPage() {
   };
 
   const handleUpdateStatus = async () => {
-    try {
-      console.log('📤 Updating report status:', {
-        id: report.id,
-        oldStatus: report.status,
-        newStatus: updateData.status,
-        priority: updateData.priority
-      });
+    // Show confirmation
+    const statusLabel = REPORT_STATUS_LABELS[updateData.status] || updateData.status;
+    setConfirmData({
+      message: `ต้องการอัปเดตสถานะเป็น "${statusLabel}" ใช่หรือไม่?`,
+      onConfirm: async () => {
+        try {
+          console.log('📤 Updating report status:', {
+            id: report.id,
+            oldStatus: report.status,
+            newStatus: updateData.status,
+            priority: updateData.priority
+          });
 
-      const res = await fetch('/api/reports', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: report.id,
-          status: updateData.status,
-          priority: updateData.priority,
-          note: updateData.note,
-          rejectionReason: updateData.rejectionReason
-        })
-      });
+          const res = await fetch('/api/reports', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id: report.id,
+              status: updateData.status,
+              priority: updateData.priority,
+              note: updateData.note,
+              rejectionReason: updateData.rejectionReason
+            })
+          });
 
-      const data = await res.json();
-      console.log('📥 API Response:', data);
+          const data = await res.json();
+          console.log('📥 API Response:', data);
 
-      if (data.success) {
-        // แสดงข้อความที่แตกต่างกันตามสถานะ
-        let message = 'อัปเดตสถานะรายงานเรียบร้อยแล้ว';
-        if (data.repairId) {
-          console.log('✅ Repair job created with ID:', data.repairId);
-          message = 'อัปเดตสถานะเป็น "อนุมัติ" และสร้างงานซ่อมแล้ว กรุณาไปที่เมนู "จัดการงานซ่อม" เพื่อจ่ายงานช่าง';
-        } else if (data.error) {
-          console.warn('⚠️ Repair creation failed:', data.error);
+          if (data.success) {
+            // แสดงข้อความที่แตกต่างกันตามสถานะ
+            let message = 'อัปเดตสถานะรายงานเรียบร้อยแล้ว';
+            if (data.repairId) {
+              console.log('✅ Repair job created with ID:', data.repairId);
+              message = `อัปเดตสถานะเป็น "${REPORT_STATUS_LABELS[REPORT_STATUS.APPROVED]}" และสร้างงานซ่อมแล้ว กรุณาไปที่เมนู "จัดการงานซ่อม" เพื่อจ่ายงานช่าง`;
+            } else if (data.error) {
+              console.warn('⚠️ Repair creation failed:', data.error);
+            }
+            
+            showAlert('success', 'อัปเดตสำเร็จ', message);
+            fetchReportDetail();
+            setShowUpdateModal(false);
+          } else {
+            console.error('❌ Update failed:', data.error);
+            showAlert('error', 'เกิดข้อผิดพลาด', data.error);
+          }
+        } catch (error) {
+          console.error('❌ Error updating report:', error);
+          showAlert('error', 'เกิดข้อผิดพลาด', 'เกิดข้อผิดพลาดในการอัปเดต กรุณาลองใหม่');
+        } finally {
+          setShowConfirmModal(false);
         }
-        
-        showAlert('success', 'อัปเดตสำเร็จ', message);
-        fetchReportDetail();
-        setShowUpdateModal(false);
-      } else {
-        console.error('❌ Update failed:', data.error);
-        showAlert('error', 'เกิดข้อผิดพลาด', data.error);
       }
-    } catch (error) {
-      console.error('❌ Error updating report:', error);
-      showAlert('error', 'เกิดข้อผิดพลาด', 'เกิดข้อผิดพลาดในการอัปเดต กรุณาลองใหม่');
-    }
+    });
+    setShowConfirmModal(true);
   };
 
   const assignToTechnician = () => {
@@ -171,23 +192,20 @@ export default function ReportDetailPage() {
     router.push(`/repairs/new?reportId=${report.id}`);
   };
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'รอดำเนินการ': return 'bg-yellow-100 text-yellow-800';
-      case 'อนุมัติ': return 'bg-green-100 text-green-800';
-      case 'ไม่อนุมัติ': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
+  const getStatusColorClass = (status) => {
+    return getReportStatusColor(status);
   };
 
-  const getPriorityColor = (priority) => {
-    switch (priority) {
-      case 'ต่ำ': return 'text-green-600 bg-green-100';
-      case 'ปานกลาง': return 'text-yellow-600 bg-yellow-100';
-      case 'สูง': return 'text-orange-600 bg-orange-100';
-      case 'ฉุกเฉิน': return 'text-red-600 bg-red-100';
-      default: return 'text-gray-600 bg-gray-100';
-    }
+  const getStatusLabel = (status) => {
+    return REPORT_STATUS_LABELS[status] || status;
+  };
+
+  const getPriorityColorClass = (priority) => {
+    return getPriorityColor(priority, 'badge');
+  };
+
+  const getPriorityLabel = (priority) => {
+    return PRIORITY_LABELS[priority] || priority;
   };
 
   if (!isClient) {
@@ -290,11 +308,11 @@ export default function ReportDetailPage() {
                     </h2>
                   </div>
                   <div className="flex items-center space-x-3">
-                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(report.status)}`}>
-                      {report.status}
+                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColorClass(report.status)}`}>
+                      {getStatusLabel(report.status)}
                     </span>
-                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${getPriorityColor(report.priority)}`}>
-                      {report.priority}
+                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${getPriorityColorClass(report.priority)}`}>
+                      {getPriorityLabel(report.priority)}
                     </span>
                   </div>
                 </div>
@@ -451,7 +469,7 @@ export default function ReportDetailPage() {
             </div>
 
             {/* Actions Card - แสดงเฉพาะเมื่อสถานะยังไม่ได้รับการอนุมัติ/ไม่อนุมัติ */}
-            {report.status !== 'อนุมัติ' && report.status !== 'ไม่อนุมัติ' && (
+            {report.status !== REPORT_STATUS.APPROVED && report.status !== REPORT_STATUS.REJECTED && (
               <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] p-6">
                 <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">
                   การดำเนินการ
@@ -496,9 +514,9 @@ export default function ReportDetailPage() {
                       onChange={(e) => setUpdateData({ ...updateData, status: e.target.value })}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
-                      <option value="รอดำเนินการ">รอดำเนินการ</option>
-                      <option value="อนุมัติ">อนุมัติ</option>
-                      <option value="ไม่อนุมัติ">ไม่อนุมัติ</option>
+                      <option value={REPORT_STATUS.PENDING}>{REPORT_STATUS_LABELS[REPORT_STATUS.PENDING]}</option>
+                      <option value={REPORT_STATUS.APPROVED}>{REPORT_STATUS_LABELS[REPORT_STATUS.APPROVED]}</option>
+                      <option value={REPORT_STATUS.REJECTED}>{REPORT_STATUS_LABELS[REPORT_STATUS.REJECTED]}</option>
                     </select>
                   </div>
 
@@ -511,10 +529,10 @@ export default function ReportDetailPage() {
                       onChange={(e) => setUpdateData({ ...updateData, priority: e.target.value })}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
-                      <option value="ต่ำ">ต่ำ</option>
-                      <option value="ปานกลาง">ปานกลาง</option>
-                      <option value="สูง">สูง</option>
-                      <option value="ฉุกเฉิน">ฉุกเฉิน</option>
+                      <option value={PRIORITY.LOW}>{PRIORITY_LABELS[PRIORITY.LOW]}</option>
+                      <option value={PRIORITY.MEDIUM}>{PRIORITY_LABELS[PRIORITY.MEDIUM]}</option>
+                      <option value={PRIORITY.HIGH}>{PRIORITY_LABELS[PRIORITY.HIGH]}</option>
+                      <option value={PRIORITY.URGENT}>{PRIORITY_LABELS[PRIORITY.URGENT]}</option>
                     </select>
                   </div>
 
@@ -655,6 +673,21 @@ export default function ReportDetailPage() {
             </div>
           </div>
         )}
+
+        {/* Confirm Modal */}
+        <ConfirmModal
+          isOpen={showConfirmModal}
+          onClose={() => {
+            setShowConfirmModal(false);
+            setConfirmData({ message: '', onConfirm: null });
+          }}
+          onConfirm={confirmData.onConfirm}
+          title="ยืนยันการอัปเดต"
+          message={confirmData.message}
+          confirmText="บันทึก"
+          cancelText="ยกเลิก"
+          type="info"
+        />
       </div>
 
     </>

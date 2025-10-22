@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { ASSET_STATUS, ASSET_STATUS_LABELS } from '../lib/constants';
 import dynamic from 'next/dynamic';
 
 // Import Map component with SSR disabled
@@ -11,7 +12,7 @@ export default function AssetForm({ asset, villages, categories = [], onSubmit, 
     category: '',
     villageId: '',
     description: '',
-    status: 'ใช้งานได้',
+    status: ASSET_STATUS.AVAILABLE,
     value: '',
     purchaseDate: '',
     locationName: '',
@@ -139,10 +140,10 @@ export default function AssetForm({ asset, villages, categories = [], onSubmit, 
           onChange={handleChange}
           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
-          <option value="ใช้งานได้">ใช้งานได้</option>
-          <option value="ชำรุด">ชำรุด</option>
-          <option value="กำลังซ่อม">กำลังซ่อม</option>
-          <option value="จำหน่าย">จำหน่าย</option>
+          <option value={ASSET_STATUS.AVAILABLE}>{ASSET_STATUS_LABELS[ASSET_STATUS.AVAILABLE]}</option>
+          <option value={ASSET_STATUS.DAMAGED}>{ASSET_STATUS_LABELS[ASSET_STATUS.DAMAGED]}</option>
+          <option value={ASSET_STATUS.DETERIORATED}>{ASSET_STATUS_LABELS[ASSET_STATUS.DETERIORATED]}</option>
+          <option value={ASSET_STATUS.LOST}>{ASSET_STATUS_LABELS[ASSET_STATUS.LOST]}</option>
         </select>
       </div>
 

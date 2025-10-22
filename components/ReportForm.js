@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
+import { PRIORITY, PRIORITY_LABELS } from '../lib/constants';
 
 export default function ReportForm({ report, assets, onSubmit, onCancel }) {
   const [formData, setFormData] = useState({
     assetId: '',
     title: '',
     description: '',
-    priority: 'ปานกลาง',
+    priority: PRIORITY.MEDIUM,
     reportedBy: ''
   });
 
@@ -90,10 +91,10 @@ export default function ReportForm({ report, assets, onSubmit, onCancel }) {
           onChange={handleChange}
           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
-          <option value="ต่ำ">ต่ำ</option>
-          <option value="ปานกลาง">ปานกลาง</option>
-          <option value="สูง">สูง</option>
-          <option value="ฉุกเฉิน">ฉุกเฉิน</option>
+          <option value={PRIORITY.LOW}>{PRIORITY_LABELS[PRIORITY.LOW]}</option>
+          <option value={PRIORITY.MEDIUM}>{PRIORITY_LABELS[PRIORITY.MEDIUM]}</option>
+          <option value={PRIORITY.HIGH}>{PRIORITY_LABELS[PRIORITY.HIGH]}</option>
+          <option value={PRIORITY.URGENT}>{PRIORITY_LABELS[PRIORITY.URGENT]}</option>
         </select>
       </div>
 

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
+import { REPAIR_STATUS, REPAIR_STATUS_LABELS, PRIORITY_LABELS, getRepairStatusColor } from '../../../lib/constants';
 
 export default function TechnicianRepairDetail() {
   const router = useRouter();
@@ -33,7 +34,7 @@ export default function TechnicianRepairDetail() {
         const repairData = data.data[0];
         setRepair(repairData);
         setUpdateForm({
-          status: repairData.status || 'รอดำเนินการ',
+          status: repairData.status || REPAIR_STATUS.PENDING,
           actualCost: repairData.actualCost || '',
           notes: repairData.notes || '',
           completedDate: repairData.completedDate || '',
@@ -154,7 +155,7 @@ export default function TechnicianRepairDetail() {
       // Create FormData for multipart upload
       const formData = new FormData();
       formData.append('id', repair.id);
-      formData.append('status', 'เสร็จสิ้น');
+      formData.append('status', REPAIR_STATUS.COMPLETED);
       formData.append('actualCost', parseFloat(updateForm.actualCost));
       formData.append('completedDate', new Date().toISOString().split('T')[0]);
       formData.append('notes', updateForm.notes);
@@ -243,18 +244,23 @@ export default function TechnicianRepairDetail() {
   }
 
   const getStatusColor = (status) => {
-    switch (status) {
-      case 'รอดำเนินการ': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'กำลังดำเนินการ': return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'เสร็จสิ้น': return 'bg-green-100 text-green-800 border-green-200';
-      case 'ยกเลิก': return 'bg-red-100 text-red-800 border-red-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
-    }
+    const baseColor = getRepairStatusColor(status);
+    const borderMap = {
+      [REPAIR_STATUS.PENDING]: 'border-yellow-200',
+      [REPAIR_STATUS.IN_PROGRESS]: 'border-blue-200',
+      [REPAIR_STATUS.COMPLETED]: 'border-green-200',
+      [REPAIR_STATUS.CANCELLED]: 'border-red-200',
+    };
+    return `${baseColor} ${borderMap[status] || 'border-gray-200'}`;
   };
 
-  const isCompleted = repair.status === 'เสร็จสิ้น';
-  const isPending = repair.status === 'รอดำเนินการ';
-  const isInProgress = repair.status === 'กำลังดำเนินการ';
+  const getStatusLabel = (status) => {
+    return REPAIR_STATUS_LABELS[status] || status;
+  };
+
+  const isCompleted = repair.status === REPAIR_STATUS.COMPLETED;
+  const isPending = repair.status === REPAIR_STATUS.PENDING;
+  const isInProgress = repair.status === REPAIR_STATUS.IN_PROGRESS;
 
   return (
     <>
@@ -302,7 +308,7 @@ export default function TechnicianRepairDetail() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="text-sm font-medium text-gray-500">ความสำคัญ</label>
-                <p className="text-gray-900 font-medium">{repair.priority}</p>
+                <p className="text-gray-900 font-medium">{PRIORITY_LABELS[repair.priority] || repair.priority}</p>
               </div>
               <div>
                 <label className="text-sm font-medium text-gray-500">ค่าใช้จ่ายประมาณการ</label>

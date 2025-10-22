@@ -3,6 +3,19 @@ import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
+// CSS to control Leaflet z-index
+const leafletCSS = `
+  .leaflet-container {
+    z-index: 1 !important;
+  }
+  .leaflet-control-container {
+    z-index: 1 !important;
+  }
+  .leaflet-popup {
+    z-index: 1 !important;
+  }
+`;
+
 // Fix Leaflet default marker icon issue in Next.js
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -23,6 +36,15 @@ export default function MapViewer({
 
   useEffect(() => {
     setMounted(true);
+    
+    // Inject CSS to control Leaflet z-index
+    const style = document.createElement('style');
+    style.textContent = leafletCSS;
+    document.head.appendChild(style);
+    
+    return () => {
+      document.head.removeChild(style);
+    };
   }, []);
 
   // แปลง lat/lng เป็น number
@@ -43,11 +65,11 @@ export default function MapViewer({
   }
 
   return (
-    <div className="w-full rounded-lg overflow-hidden border border-gray-300" style={{ height }}>
+    <div className="w-full rounded-lg overflow-hidden border border-gray-300" style={{ height, zIndex: 1 }}>
       <MapContainer
         center={[latitude, longitude]}
         zoom={zoom}
-        style={{ height: '100%', width: '100%' }}
+        style={{ height: '100%', width: '100%', zIndex: 1 }}
         scrollWheelZoom={false}
         dragging={true}
         zoomControl={true}

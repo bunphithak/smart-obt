@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import AlertModal from '../../components/AlertModal';
+import { REPAIR_STATUS, REPAIR_STATUS_LABELS, getRepairStatusColor } from '../../lib/constants';
 
 export default function TechnicianDashboard() {
   const router = useRouter();
@@ -105,18 +106,19 @@ export default function TechnicianDashboard() {
   };
 
   const getStatusColor = (status) => {
-    switch (status) {
-      case 'รอดำเนินการ':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'กำลังดำเนินการ':
-        return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'เสร็จสิ้น':
-        return 'bg-green-100 text-green-800 border-green-200';
-      case 'ยกเลิก':
-        return 'bg-red-100 text-red-800 border-red-200';
-      default:
-        return 'bg-gray-100 text-gray-800 border-gray-200';
-    }
+    const baseColor = getRepairStatusColor(status);
+    // Add border color
+    const borderMap = {
+      [REPAIR_STATUS.PENDING]: 'border-yellow-200',
+      [REPAIR_STATUS.IN_PROGRESS]: 'border-blue-200',
+      [REPAIR_STATUS.COMPLETED]: 'border-green-200',
+      [REPAIR_STATUS.CANCELLED]: 'border-red-200',
+    };
+    return `${baseColor} ${borderMap[status] || 'border-gray-200'}`;
+  };
+
+  const getStatusLabel = (status) => {
+    return REPAIR_STATUS_LABELS[status] || status;
   };
 
   const getPriorityColor = (priority) => {
@@ -136,9 +138,9 @@ export default function TechnicianDashboard() {
 
   const filteredRepairs = repairs.filter(repair => {
     if (filter === 'all') return true;
-    if (filter === 'pending') return repair.status === 'รอดำเนินการ';
-    if (filter === 'inprogress') return repair.status === 'กำลังดำเนินการ';
-    if (filter === 'completed') return repair.status === 'เสร็จสิ้น';
+    if (filter === 'pending') return repair.status === REPAIR_STATUS.PENDING;
+    if (filter === 'inprogress') return repair.status === REPAIR_STATUS.IN_PROGRESS;
+    if (filter === 'completed') return repair.status === REPAIR_STATUS.COMPLETED;
     return true;
   });
 
@@ -205,9 +207,9 @@ export default function TechnicianDashboard() {
             <div className="bg-white rounded-lg shadow p-6 border-l-4 border-yellow-400">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-500">รอดำเนินการ</p>
+                  <p className="text-sm text-gray-500">{REPAIR_STATUS_LABELS[REPAIR_STATUS.PENDING]}</p>
                   <p className="text-3xl font-bold text-yellow-600">
-                    {repairs.filter(r => r.status === 'รอดำเนินการ').length}
+                    {repairs.filter(r => r.status === REPAIR_STATUS.PENDING).length}
                   </p>
                 </div>
                 <div className="bg-yellow-100 rounded-full p-3">
@@ -238,9 +240,9 @@ export default function TechnicianDashboard() {
             <div className="bg-white rounded-lg shadow p-6 border-l-4 border-green-400">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-500">เสร็จสิ้น</p>
+                  <p className="text-sm text-gray-500">{REPAIR_STATUS_LABELS[REPAIR_STATUS.COMPLETED]}</p>
                   <p className="text-3xl font-bold text-green-600">
-                    {repairs.filter(r => r.status === 'เสร็จสิ้น').length}
+                    {repairs.filter(r => r.status === REPAIR_STATUS.COMPLETED).length}
                   </p>
                 </div>
                 <div className="bg-green-100 rounded-full p-3">
@@ -274,7 +276,7 @@ export default function TechnicianDashboard() {
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
                 >
-                  รอดำเนินการ ({repairs.filter(r => r.status === 'รอดำเนินการ').length})
+                  {REPAIR_STATUS_LABELS[REPAIR_STATUS.PENDING]} ({repairs.filter(r => r.status === REPAIR_STATUS.PENDING).length})
                 </button>
                 <button
                   onClick={() => setFilter('inprogress')}
@@ -294,7 +296,7 @@ export default function TechnicianDashboard() {
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
                 >
-                  เสร็จสิ้น ({repairs.filter(r => r.status === 'เสร็จสิ้น').length})
+                  {REPAIR_STATUS_LABELS[REPAIR_STATUS.COMPLETED]} ({repairs.filter(r => r.status === REPAIR_STATUS.COMPLETED).length})
                 </button>
               </nav>
             </div>

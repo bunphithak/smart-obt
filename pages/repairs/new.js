@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
+import { REPAIR_STATUS, PRIORITY, PRIORITY_LABELS } from '../../lib/constants';
 
 export default function NewRepairPage() {
   const router = useRouter();
@@ -18,7 +19,7 @@ export default function NewRepairPage() {
     title: '',
     description: '',
     assignedTo: '',
-    priority: 'ปานกลาง',
+    priority: PRIORITY.MEDIUM,
     estimatedCost: '',
     dueDate: '',
     notes: ''
@@ -52,7 +53,7 @@ export default function NewRepairPage() {
           ...formData,
           title: reportData.problemType || reportData.title || '',
           description: reportData.description || '',
-          priority: reportData.priority || 'ปานกลาง'
+          priority: reportData.priority || PRIORITY.MEDIUM
         });
       }
       setLoading(false);
@@ -92,6 +93,13 @@ export default function NewRepairPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Validate: ต้องมีช่างผู้รับผิดชอบ
+    if (!formData.assignedTo) {
+      showAlert('error', 'ไม่สามารถบันทึกได้', 'กรุณาระบุช่างผู้รับผิดชอบ');
+      return;
+    }
+    
     setSubmitting(true);
 
     try {
@@ -99,7 +107,7 @@ export default function NewRepairPage() {
         ...formData,
         reportId: reportId || null,
         assetCode: report?.assetCode || null,
-        status: 'รอดำเนินการ',
+        status: REPAIR_STATUS.PENDING,
         createdAt: new Date().toISOString()
       };
 
@@ -249,10 +257,10 @@ export default function NewRepairPage() {
                       required
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
-                      <option value="ต่ำ">ต่ำ</option>
-                      <option value="ปานกลาง">ปานกลาง</option>
-                      <option value="สูง">สูง</option>
-                      <option value="ฉุกเฉิน">ฉุกเฉิน</option>
+                      <option value={PRIORITY.LOW}>{PRIORITY_LABELS[PRIORITY.LOW]}</option>
+                      <option value={PRIORITY.MEDIUM}>{PRIORITY_LABELS[PRIORITY.MEDIUM]}</option>
+                      <option value={PRIORITY.HIGH}>{PRIORITY_LABELS[PRIORITY.HIGH]}</option>
+                      <option value={PRIORITY.URGENT}>{PRIORITY_LABELS[PRIORITY.URGENT]}</option>
                     </select>
                   </div>
                 </div>

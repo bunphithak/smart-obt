@@ -3,6 +3,7 @@ import AssetForm from '../../components/AssetForm';
 import NextImage from 'next/image';
 import ConfirmModal from '../../components/ConfirmModal';
 import AlertModal from '../../components/AlertModal';
+import { ASSET_STATUS, ASSET_STATUS_LABELS, getAssetStatusColor } from '../../lib/constants';
 // import dynamic from 'next/dynamic';
 
 // Disable SSR for this page to avoid QR code library issues
@@ -29,6 +30,7 @@ export default function AssetsPage() {
   // Modal states
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [assetToDelete, setAssetToDelete] = useState(null);
+  const [confirmData, setConfirmData] = useState({ message: '', onConfirm: null });
 
   useEffect(() => {
     // Only fetch data on client side
@@ -115,7 +117,7 @@ export default function AssetsPage() {
         quality: 0.92,
         margin: 1,
         color: {
-          dark: '#7C3AED',
+          dark: '#7C3AED', // Purple color for general QR
           light: '#FFFFFF'
         },
         width: 250
@@ -252,30 +254,40 @@ export default function AssetsPage() {
   };
 
   const handleSubmit = async (formData) => {
-    try {
-      const method = editingAsset ? 'PUT' : 'POST';
-      const data = editingAsset ? { ...formData, id: editingAsset.id } : formData;
+    // Show confirmation
+    const action = editingAsset ? 'แก้ไข' : 'เพิ่ม';
+    setConfirmData({
+      message: `ต้องการ${action}ทรัพย์สิน "${formData.name}" ใช่หรือไม่?`,
+      onConfirm: async () => {
+        try {
+          const method = editingAsset ? 'PUT' : 'POST';
+          const data = editingAsset ? { ...formData, id: editingAsset.id } : formData;
 
-      const res = await fetch('/api/assets', {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      });
+          const res = await fetch('/api/assets', {
+            method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+          });
 
-      const result = await res.json();
+          const result = await res.json();
 
-      if (result.success) {
-        showAlert('success', 'สำเร็จ', editingAsset ? 'แก้ไขทรัพย์สินสำเร็จ' : 'เพิ่มทรัพย์สินสำเร็จ');
-        setShowForm(false);
-        setEditingAsset(null);
-        fetchData();
-      } else {
-        showAlert('error', 'เกิดข้อผิดพลาด', 'เกิดข้อผิดพลาด: ' + result.error);
+          if (result.success) {
+            showAlert('success', 'สำเร็จ', editingAsset ? 'แก้ไขทรัพย์สินสำเร็จ' : 'เพิ่มทรัพย์สินสำเร็จ');
+            setShowForm(false);
+            setEditingAsset(null);
+            fetchData();
+          } else {
+            showAlert('error', 'เกิดข้อผิดพลาด', 'เกิดข้อผิดพลาด: ' + result.error);
+          }
+        } catch (error) {
+          showAlert('error', 'เกิดข้อผิดพลาด', 'ไม่สามารถบันทึกได้');
+          console.error(error);
+        } finally {
+          setShowConfirmModal(false);
+        }
       }
-    } catch (error) {
-      showAlert('error', 'เกิดข้อผิดพลาด', 'ไม่สามารถบันทึกได้');
-      console.error(error);
-    }
+    });
+    setShowConfirmModal(true);
   };
 
   const handleDeleteClick = (asset) => {
@@ -553,14 +565,10 @@ export default function AssetsPage() {
       return;
     }
 
-    // Show confirmation modal
-    setConfirmData({
-      message: `ต้องการพิมพ์ QR Code ทั้งหมด ${filteredAssets.length} รายการใช่หรือไม่?`,
-      onConfirm: async () => {
-        await executePrintAllQRCodes();
-      }
-    });
-    setShowConfirmModal(true);
+    // Ask for confirmation
+    if (window.confirm(`ต้องการพิมพ์ QR Code ทั้งหมด ${filteredAssets.length} รายการใช่หรือไม่?`)) {
+      await executePrintAllQRCodes();
+    }
   };
 
   const executePrintAllQRCodes = async () => {
@@ -587,9 +595,9 @@ export default function AssetsPage() {
           ctx.fillStyle = '#FFFFFF';
           ctx.fillRect(0, 0, canvas.width, canvas.height);
           
-          // Generate QR Code as Data URL
+          // Generate QR Code as Data URL with high error correction for logo
           const qrDataURL = await QRCode.toDataURL(reportUrl, {
-            errorCorrectionLevel: 'M',
+            errorCorrectionLevel: 'H', // High error correction สำหรับ logo
             type: 'image/png',
             quality: 0.92,
             margin: 1,
@@ -702,7 +710,7 @@ export default function AssetsPage() {
                   <p style="margin: 2px 0; font-weight: bold;">${asset.name}</p>
                   <p style="margin: 2px 0;">รหัส: ${asset.code}</p>
                   <p style="margin: 2px 0;">หมวดหมู่: ${asset.category}</p>
-                  <p style="margin: 2px 0;">สถานะ: ${asset.status}</p>
+                  <p style="margin: 2px 0;">สถานะ: ${ASSET_STATUS_LABELS[asset.status] || asset.status}</p>
                 </div>
               </div>
             `).join('')}
@@ -772,23 +780,47 @@ export default function AssetsPage() {
         const reportUrl = `${window.location.origin}/public?code=${asset.code}`;
         console.log('Report URL:', reportUrl);
         
-        // Generate QR Code as Data URL
-        console.log('Generating real QR code...');
-        const qrDataURL = await QRCode.toDataURL(reportUrl, {
-          errorCorrectionLevel: 'M',
-          type: 'image/png',
-          quality: 0.92,
-          margin: 1,
-          color: {
-            dark: '#1E40AF',
-            light: '#FFFFFF'
-          },
-          width: 300
-        });
+        // Create canvas for QR code with logo
+        console.log('Generating real QR code with logo...');
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = 300;
+        canvas.height = 300;
         
-        console.log('Real QR Code generated:', qrDataURL.substring(0, 100) + '...');
-        setQrCodeData(qrDataURL);
-        console.log('Real QR Code data set successfully');
+        // Fill white background
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+      // Generate QR Code
+      const qrDataURL = await QRCode.toDataURL(reportUrl, {
+        errorCorrectionLevel: 'M', // Medium - เพียงพอสำหรับ scan
+        type: 'image/png',
+        quality: 0.92,
+        margin: 1,
+        color: {
+          dark: '#1E40AF',
+          light: '#FFFFFF'
+        },
+        width: 300
+      });
+      
+      // Load QR code image
+      const qrImage = new Image();
+      await new Promise((resolve, reject) => {
+        qrImage.onload = resolve;
+        qrImage.onerror = reject;
+        qrImage.src = qrDataURL;
+      });
+      
+      // Draw QR code
+      ctx.drawImage(qrImage, 0, 0, 300, 300);
+      
+      // Convert canvas to data URL
+      const finalQRCode = canvas.toDataURL('image/png', 0.95);
+      
+      console.log('Real QR Code generated:', finalQRCode.substring(0, 100) + '...');
+      setQrCodeData(finalQRCode);
+      console.log('Real QR Code data set successfully');
       } catch (qrError) {
         console.error('Real QR code generation failed:', qrError);
         // Keep the test image
@@ -831,13 +863,11 @@ export default function AssetsPage() {
   };
 
   const getStatusColor = (status) => {
-    switch (status) {
-      case 'ใช้งานได้': return 'bg-green-100 text-green-800';
-      case 'ชำรุด': return 'bg-yellow-100 text-yellow-800';
-      case 'กำลังซ่อม': return 'bg-blue-100 text-blue-800';
-      case 'จำหน่าย': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
+    return getAssetStatusColor(status);
+  };
+
+  const getStatusLabel = (status) => {
+    return ASSET_STATUS_LABELS[status] || status;
   };
 
   if (loading) {
@@ -943,15 +973,15 @@ export default function AssetsPage() {
           <p className="mt-2 text-2xl font-bold text-gray-800 dark:text-white/90">{assets.length}</p>
         </div>
         <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
-          <p className="text-sm text-gray-500 dark:text-gray-400">ใช้งานได้</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">{ASSET_STATUS_LABELS[ASSET_STATUS.AVAILABLE]}</p>
           <p className="mt-2 text-2xl font-bold text-green-600 dark:text-green-400">
-            {assets.filter(a => a.status === 'ใช้งานได้').length}
+            {assets.filter(a => a.status === ASSET_STATUS.AVAILABLE).length}
           </p>
         </div>
         <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
-          <p className="text-sm text-gray-500 dark:text-gray-400">ชำรุด</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">{ASSET_STATUS_LABELS[ASSET_STATUS.DAMAGED]}</p>
           <p className="mt-2 text-2xl font-bold text-yellow-600 dark:text-yellow-400">
-            {assets.filter(a => a.status === 'ชำรุด').length}
+            {assets.filter(a => a.status === ASSET_STATUS.DAMAGED).length}
           </p>
         </div>
         <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
@@ -988,7 +1018,7 @@ export default function AssetsPage() {
                   </td>
                   <td className="px-6 py-4 text-sm">
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(asset.status)}`}>
-                      {asset.status}
+                      {getStatusLabel(asset.status)}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-sm">
@@ -1423,13 +1453,14 @@ export default function AssetsPage() {
         onClose={() => {
           setShowConfirmModal(false);
           setAssetToDelete(null);
+          setConfirmData({ message: '', onConfirm: null });
         }}
-        onConfirm={handleDeleteConfirm}
-        title="ยืนยันการลบ"
-        message={`คุณต้องการลบทรัพย์สิน "${assetToDelete?.name}" ใช่หรือไม่?`}
-        confirmText="ลบ"
+        onConfirm={assetToDelete ? handleDeleteConfirm : confirmData.onConfirm}
+        title={assetToDelete ? "ยืนยันการลบ" : "ยืนยันการบันทึก"}
+        message={assetToDelete ? `คุณต้องการลบทรัพย์สิน "${assetToDelete?.name}" ใช่หรือไม่?` : confirmData.message}
+        confirmText={assetToDelete ? "ลบ" : "บันทึก"}
         cancelText="ยกเลิก"
-        type="danger"
+        type={assetToDelete ? "danger" : "info"}
       />
 
       {/* Alert Modal */}

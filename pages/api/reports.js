@@ -4,6 +4,7 @@ const { Pool } = require('pg');
 const { formidable } = require('formidable');
 const fs = require('fs').promises;
 const path = require('path');
+const { REPORT_STATUS, REPAIR_STATUS, PRIORITY } = require('../../lib/constants');
 // const smsService = require('../../lib/smsService'); // ปิด SMS - ยังไม่พร้อมใช้งาน
 
 const pool = new Pool({
@@ -271,8 +272,8 @@ export default async function handler(req, res) {
             problemType || 'ทั่วไป',
             reportTitle,
             description.trim(),
-            'รอดำเนินการ',
-            priority || 'ปานกลาง',
+            REPORT_STATUS.PENDING,
+            priority || PRIORITY.MEDIUM,
             reportedBy?.trim() || 'ไม่ระบุ',
             reporterPhone?.trim() || '',
             JSON.stringify(imageUrls),
@@ -654,8 +655,8 @@ export default async function handler(req, res) {
             problemType || 'ทั่วไป',
             reportTitle,
             description.trim(),
-            'รอดำเนินการ',
-            priority || 'ปานกลาง',
+            REPORT_STATUS.PENDING,
+            priority || PRIORITY.MEDIUM,
             reportedBy?.trim() || 'ไม่ระบุ',
             reporterPhone?.trim() || '',
             JSON.stringify(imageUrls),
@@ -807,8 +808,8 @@ export default async function handler(req, res) {
 
         const updatedReport = updateResult.rows[0];
 
-        // ถ้าสถานะเปลี่ยนจาก "รอดำเนินการ" เป็น "อนุมัติ" ให้สร้างงานซ่อมอัตโนมัติ
-        if (oldStatus === 'รอดำเนินการ' && updateStatus === 'อนุมัติ') {
+        // ถ้าสถานะเปลี่ยนจาก PENDING เป็น APPROVED ให้สร้างงานซ่อมอัตโนมัติ
+        if (oldStatus === REPORT_STATUS.PENDING && updateStatus === REPORT_STATUS.APPROVED) {
           try {
             console.log('🔧 Creating repair job automatically for approved report:', updateId);
             console.log('📋 Report data:', updatedReport);
@@ -851,8 +852,8 @@ export default async function handler(req, res) {
               updatedReport.asset_code,
               updatedReport.title,
               updatedReport.description,
-              'รอดำเนินการ', // สถานะเริ่มต้นของงานซ่อม
-              updatedReport.priority || 'ปานกลาง',
+              REPAIR_STATUS.PENDING, // สถานะเริ่มต้นของงานซ่อม
+              updatedReport.priority || PRIORITY.MEDIUM,
               updatedReport.location,
               lat,
               lng,

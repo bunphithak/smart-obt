@@ -4,6 +4,7 @@ import {
   getReportStatus, 
   getPriority 
 } from '../../lib/masterData';
+import { REPORT_STATUS_LABELS, PRIORITY_LABELS } from '../../lib/constants';
 
 export default function ReportsPage() {
   const router = useRouter();
@@ -477,10 +478,10 @@ export default function ReportsPage() {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center space-x-2">
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${getReportStatusColorClass(report.status)}`}>
-                        {report.status}
+                        {REPORT_STATUS_LABELS[report.status] || report.status}
                       </span>
                       <span className={`text-xs font-medium ${getPriorityColorClass(report.priority)}`}>
-                        {report.priority}
+                        {PRIORITY_LABELS[report.priority] || report.priority}
                       </span>
                     </div>
                   </td>

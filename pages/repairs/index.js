@@ -4,6 +4,7 @@ import RepairTable from '../../components/RepairTable';
 import AlertModal from '../../components/AlertModal';
 import ConfirmModal from '../../components/ConfirmModal';
 import CreateRepairModal from '../../components/CreateRepairModal';
+import { REPAIR_STATUS, REPAIR_STATUS_LABELS } from '../../lib/constants';
 
 export default function RepairsPage() {
   const router = useRouter();
@@ -74,13 +75,17 @@ export default function RepairsPage() {
     router.push(`/repairs/${repair.id}`); // View only mode
   };
 
+  const handlePrint = (repair) => {
+    window.open(`/public/pdf/repair/${repair.id}`, '_blank');
+  };
+
   const filteredRepairs = repairs.filter(repair => {
     if (filter.status && repair.status !== filter.status) return false;
-    if (filter.assignedTo && !repair.assignedTo.toLowerCase().includes(filter.assignedTo.toLowerCase())) return false;
+    if (filter.assignedTo && !repair.technicianName?.toLowerCase().includes(filter.assignedTo.toLowerCase())) return false;
     return true;
   });
 
-  const uniqueTechnicians = [...new Set(repairs.map(r => r.assignedTo))];
+  const uniqueTechnicians = [...new Set(repairs.map(r => r.technicianName).filter(Boolean))];
 
   if (loading) {
     return (
@@ -125,10 +130,10 @@ export default function RepairsPage() {
             className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="">ทุกสถานะ</option>
-            <option value="รอดำเนินการ">รอดำเนินการ</option>
-            <option value="กำลังดำเนินการ">กำลังดำเนินการ</option>
-            <option value="เสร็จสิ้น">เสร็จสิ้น</option>
-            <option value="ยกเลิก">ยกเลิก</option>
+            <option value={REPAIR_STATUS.PENDING}>{REPAIR_STATUS_LABELS[REPAIR_STATUS.PENDING]}</option>
+            <option value={REPAIR_STATUS.IN_PROGRESS}>{REPAIR_STATUS_LABELS[REPAIR_STATUS.IN_PROGRESS]}</option>
+            <option value={REPAIR_STATUS.COMPLETED}>{REPAIR_STATUS_LABELS[REPAIR_STATUS.COMPLETED]}</option>
+            <option value={REPAIR_STATUS.CANCELLED}>{REPAIR_STATUS_LABELS[REPAIR_STATUS.CANCELLED]}</option>
           </select>
           <select
             value={filter.assignedTo}
@@ -150,21 +155,21 @@ export default function RepairsPage() {
           <p className="mt-2 text-2xl font-bold text-gray-800 dark:text-white/90">{repairs.length}</p>
         </div>
         <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
-          <p className="text-sm text-gray-500 dark:text-gray-400">รอดำเนินการ</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">{REPAIR_STATUS_LABELS[REPAIR_STATUS.PENDING]}</p>
           <p className="mt-2 text-2xl font-bold text-yellow-600 dark:text-yellow-400">
-            {repairs.filter(r => r.status === 'รอดำเนินการ').length}
+            {repairs.filter(r => r.status === REPAIR_STATUS.PENDING).length}
           </p>
         </div>
         <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
-          <p className="text-sm text-gray-500 dark:text-gray-400">กำลังดำเนินการ</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">{REPAIR_STATUS_LABELS[REPAIR_STATUS.IN_PROGRESS]}</p>
           <p className="mt-2 text-2xl font-bold text-blue-600 dark:text-blue-400">
-            {repairs.filter(r => r.status === 'กำลังดำเนินการ').length}
+            {repairs.filter(r => r.status === REPAIR_STATUS.IN_PROGRESS).length}
           </p>
         </div>
         <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
-          <p className="text-sm text-gray-500 dark:text-gray-400">เสร็จสิ้น</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">{REPAIR_STATUS_LABELS[REPAIR_STATUS.COMPLETED]}</p>
           <p className="mt-2 text-2xl font-bold text-green-600 dark:text-green-400">
-            {repairs.filter(r => r.status === 'เสร็จสิ้น').length}
+            {repairs.filter(r => r.status === REPAIR_STATUS.COMPLETED).length}
           </p>
         </div>
       </div>
@@ -176,6 +181,7 @@ export default function RepairsPage() {
           onEdit={handleEdit}
           onDelete={handleDelete}
           onViewDetails={handleViewDetails}
+          onPrint={handlePrint}
         />
       </div>
 

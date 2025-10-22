@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import Head from 'next/head';
 import Image from 'next/image';
 import AlertModal from '../../components/AlertModal';
+import { REPAIR_STATUS, REPAIR_STATUS_LABELS } from '../../lib/constants';
 
 // Disable static generation for this page
 export async function getServerSideProps() {
@@ -83,43 +84,39 @@ export default function TrackStatus() {
   };
 
   const getStatusInfo = (status) => {
-    switch (status) {
-      case 'รอดำเนินการ':
-        return {
-          color: 'yellow',
-          icon: '🟡',
-          text: 'รับเรื่องแล้ว',
-          description: 'เจ้าหน้าที่ได้รับเรื่องแล้ว กำลังดำเนินการตรวจสอบ'
-        };
-      case 'กำลังดำเนินการ':
-        return {
-          color: 'blue',
-          icon: '🔵',
-          text: 'อยู่ระหว่างซ่อม',
-          description: 'ช่างกำลังดำเนินการซ่อมแซม'
-        };
-      case 'เสร็จสิ้น':
-        return {
-          color: 'green',
-          icon: '🟢',
-          text: 'ซ่อมเสร็จ / ปิดงาน',
-          description: 'ดำเนินการเสร็จสิ้นเรียบร้อยแล้ว'
-        };
-      case 'ยกเลิก':
-        return {
-          color: 'red',
-          icon: '🔴',
-          text: 'ยกเลิก',
-          description: 'งานถูกยกเลิก'
-        };
-      default:
-        return {
-          color: 'gray',
-          icon: '⚪',
-          text: status,
-          description: ''
-        };
-    }
+    const statusMap = {
+      [REPAIR_STATUS.PENDING]: {
+        color: 'yellow',
+        icon: '🟡',
+        text: 'รับเรื่องแล้ว',
+        description: 'เจ้าหน้าที่ได้รับเรื่องแล้ว กำลังดำเนินการตรวจสอบ'
+      },
+      [REPAIR_STATUS.IN_PROGRESS]: {
+        color: 'blue',
+        icon: '🔵',
+        text: 'อยู่ระหว่างซ่อม',
+        description: 'ช่างกำลังดำเนินการซ่อมแซม'
+      },
+      [REPAIR_STATUS.COMPLETED]: {
+        color: 'green',
+        icon: '🟢',
+        text: 'ซ่อมเสร็จ / ปิดงาน',
+        description: 'ดำเนินการเสร็จสิ้นเรียบร้อยแล้ว'
+      },
+      [REPAIR_STATUS.CANCELLED]: {
+        color: 'red',
+        icon: '🔴',
+        text: 'ยกเลิก',
+        description: 'งานถูกยกเลิก'
+      }
+    };
+    
+    return statusMap[status] || {
+      color: 'gray',
+      icon: '⚪',
+      text: status,
+      description: ''
+    };
   };
 
   if (loading) {
@@ -223,9 +220,9 @@ export default function TrackStatus() {
                 </div>
               </div>
 
-              <div className={`flex items-start ${report.status === 'กำลังดำเนินการ' || report.status === 'เสร็จสิ้น' ? 'text-blue-600' : 'text-gray-400'}`}>
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-3 ${report.status === 'กำลังดำเนินการ' || report.status === 'เสร็จสิ้น' ? 'bg-blue-100' : 'bg-gray-200'}`}>
-                  {report.status === 'กำลังดำเนินการ' || report.status === 'เสร็จสิ้น' ? (
+              <div className={`flex items-start ${report.status === REPAIR_STATUS.IN_PROGRESS || report.status === REPAIR_STATUS.COMPLETED ? 'text-blue-600' : 'text-gray-400'}`}>
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-3 ${report.status === REPAIR_STATUS.IN_PROGRESS || report.status === REPAIR_STATUS.COMPLETED ? 'bg-blue-100' : 'bg-gray-200'}`}>
+                  {report.status === REPAIR_STATUS.IN_PROGRESS || report.status === REPAIR_STATUS.COMPLETED ? (
                     <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                     </svg>
@@ -241,9 +238,9 @@ export default function TrackStatus() {
                 </div>
               </div>
 
-              <div className={`flex items-start ${report.status === 'เสร็จสิ้น' ? 'text-green-600' : 'text-gray-400'}`}>
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-3 ${report.status === 'เสร็จสิ้น' ? 'bg-green-100' : 'bg-gray-200'}`}>
-                  {report.status === 'เสร็จสิ้น' ? (
+              <div className={`flex items-start ${report.status === REPAIR_STATUS.COMPLETED ? 'text-green-600' : 'text-gray-400'}`}>
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-3 ${report.status === REPAIR_STATUS.COMPLETED ? 'bg-green-100' : 'bg-gray-200'}`}>
+                  {report.status === REPAIR_STATUS.COMPLETED ? (
                     <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                     </svg>
@@ -306,7 +303,7 @@ export default function TrackStatus() {
           )}
 
           {/* After Images */}
-          {report.status === 'เสร็จสิ้น' && report.repair?.afterImages && report.repair.afterImages.length > 0 && (
+          {report.status === REPAIR_STATUS.COMPLETED && report.repair?.afterImages && report.repair.afterImages.length > 0 && (
             <div className="border-t p-6 bg-green-50">
               <h3 className="text-lg font-semibold mb-4 text-green-800">รูปภาพหลังซ่อม</h3>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -325,7 +322,7 @@ export default function TrackStatus() {
           )}
 
           {/* Feedback Section */}
-          {report.status === 'เสร็จสิ้น' && !report.rating && (
+          {report.status === REPAIR_STATUS.COMPLETED && !report.rating && (
             <div className="border-t p-6 bg-blue-50">
               {!showFeedbackForm ? (
                 <button

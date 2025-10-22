@@ -19,6 +19,7 @@ export default function CategoriesPage() {
   // Modal states
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [categoryToDelete, setCategoryToDelete] = useState(null);
+  const [confirmData, setConfirmData] = useState({ message: '', onConfirm: null, isDelete: false });
   const [showAlertModal, setShowAlertModal] = useState(false);
   const [alertData, setAlertData] = useState({ type: 'success', title: '', message: '' });
 
@@ -48,34 +49,45 @@ export default function CategoriesPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    try {
-      const method = editingCategory ? 'PUT' : 'POST';
-      const data = editingCategory ? { ...formData, id: editingCategory.id } : formData;
+    // Show confirmation
+    const action = editingCategory ? 'แก้ไข' : 'เพิ่ม';
+    setConfirmData({
+      message: `ต้องการ${action}หมวดหมู่ "${formData.name}" ใช่หรือไม่?`,
+      isDelete: false,
+      onConfirm: async () => {
+        try {
+          const method = editingCategory ? 'PUT' : 'POST';
+          const data = editingCategory ? { ...formData, id: editingCategory.id } : formData;
 
-      const res = await apiCall('/api/categories', {
-        method,
-        body: JSON.stringify(data)
-      });
+          const res = await apiCall('/api/categories', {
+            method,
+            body: JSON.stringify(data)
+          });
 
-      const result = await res.json();
+          const result = await res.json();
 
-      if (result.success) {
-        showAlert(
-          'สำเร็จ',
-          editingCategory ? 'แก้ไขหมวดหมู่สำเร็จ' : 'เพิ่มหมวดหมู่สำเร็จ',
-          'success'
-        );
-        setShowForm(false);
-        setEditingCategory(null);
-        setFormData({ name: '', description: '', codePrefix: '', isActive: true });
-        fetchCategories();
-      } else {
-        showAlert('ข้อผิดพลาด', result.error, 'error');
+          if (result.success) {
+            showAlert(
+              'สำเร็จ',
+              editingCategory ? 'แก้ไขหมวดหมู่สำเร็จ' : 'เพิ่มหมวดหมู่สำเร็จ',
+              'success'
+            );
+            setShowForm(false);
+            setEditingCategory(null);
+            setFormData({ name: '', description: '', codePrefix: '', isActive: true });
+            fetchCategories();
+          } else {
+            showAlert('ข้อผิดพลาด', result.error, 'error');
+          }
+        } catch (error) {
+          showAlert('ข้อผิดพลาด', 'ไม่สามารถบันทึกได้', 'error');
+          console.error(error);
+        } finally {
+          setShowConfirmModal(false);
+        }
       }
-    } catch (error) {
-      showAlert('ข้อผิดพลาด', 'ไม่สามารถบันทึกได้', 'error');
-      console.error(error);
-    }
+    });
+    setShowConfirmModal(true);
   };
 
   const handleEdit = (category) => {
@@ -91,6 +103,11 @@ export default function CategoriesPage() {
 
   const handleDeleteClick = (category) => {
     setCategoryToDelete(category);
+    setConfirmData({
+      message: `คุณต้องการลบหมวดหมู่ "${category.name}" ใช่หรือไม่?`,
+      isDelete: true,
+      onConfirm: handleDeleteConfirm
+    });
     setShowConfirmModal(true);
   };
 
@@ -358,13 +375,14 @@ export default function CategoriesPage() {
         onClose={() => {
           setShowConfirmModal(false);
           setCategoryToDelete(null);
+          setConfirmData({ message: '', onConfirm: null, isDelete: false });
         }}
-        onConfirm={handleDeleteConfirm}
-        title="ยืนยันการลบ"
-        message={`คุณต้องการลบหมวดหมู่ "${categoryToDelete?.name}" ใช่หรือไม่?`}
-        confirmText="ลบ"
+        onConfirm={confirmData.onConfirm}
+        title={confirmData.isDelete ? "ยืนยันการลบ" : "ยืนยันการบันทึก"}
+        message={confirmData.message}
+        confirmText={confirmData.isDelete ? "ลบ" : "บันทึก"}
         cancelText="ยกเลิก"
-        type="danger"
+        type={confirmData.isDelete ? "danger" : "info"}
       />
 
       {/* Alert Modal */}

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { REPAIR_STATUS, REPAIR_STATUS_LABELS } from '../lib/constants';
 
 export default function DashboardChart() {
   const [chartData, setChartData] = useState({
@@ -20,9 +21,9 @@ export default function DashboardChart() {
         { month: 'มิ.ย.', count: 15 }
       ],
       reportsByStatus: {
-        'รอดำเนินการ': 5,
-        'กำลังดำเนินการ': 3,
-        'เสร็จสิ้น': 12
+        [REPAIR_STATUS.PENDING]: 5,
+        [REPAIR_STATUS.IN_PROGRESS]: 3,
+        [REPAIR_STATUS.COMPLETED]: 12
       },
       assetsByCategory: {
         'เฟอร์นิเจอร์': 25,
@@ -67,7 +68,7 @@ export default function DashboardChart() {
             {Object.entries(chartData.reportsByStatus).map(([status, count]) => (
               <div key={status}>
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs text-gray-600 dark:text-gray-400">{status}</span>
+                  <span className="text-xs text-gray-600 dark:text-gray-400">{REPAIR_STATUS_LABELS[status] || status}</span>
                   <span className="text-xs font-bold text-gray-800 dark:text-white/90">{count}</span>
                 </div>
                 <div className="w-full bg-gray-100 dark:bg-gray-800 rounded-full h-2">

@@ -1,6 +1,7 @@
 // Assets API - Connected to PostgreSQL Database
 require('dotenv').config({ path: '.env.local' });
 const { Pool } = require('pg');
+const { ASSET_STATUS } = require('../../lib/constants');
 
 const pool = new Pool({
   host: process.env.DB_HOST || 'localhost',
@@ -256,7 +257,7 @@ export default async function handler(req, res) {
           categoryId,
           assetVillageId,
           description?.trim() || '',
-          assetStatus || 'ใช้งานได้',
+          assetStatus || ASSET_STATUS.AVAILABLE,
           value ? parseFloat(value) : null,
           purchaseDate || null,
           locationName?.trim() || null,

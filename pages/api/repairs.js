@@ -1,6 +1,7 @@
 // Repairs API - Connected to PostgreSQL Database
 require('dotenv').config({ path: '.env.local' });
 const { Pool } = require('pg');
+const { REPAIR_STATUS, PRIORITY } = require('../../lib/constants');
 
 const pool = new Pool({
   host: process.env.DB_HOST || 'localhost',
@@ -36,12 +37,18 @@ export default async function handler(req, res) {
               rep.title as report_title,
               rep.ticket_id,
               rep.asset_code,
+              rep.report_type,
+              rep.reported_by,
+              rep.reporter_phone,
+              rep.reported_at,
               a.name as asset_name,
-              v.name as village_name
+              v.name as village_name,
+              u.name as technician_name
             FROM repairs r
             LEFT JOIN reports rep ON r.report_id = rep.id
             LEFT JOIN assets a ON rep.asset_code = a.code
             LEFT JOIN villages v ON a.village_id = v.id
+            LEFT JOIN users u ON r.assigned_to = u.id
             WHERE r.id = $1
           `, [id]);
 
@@ -59,6 +66,7 @@ export default async function handler(req, res) {
               id: repair.id,
               reportId: repair.report_id,
               reportTitle: repair.report_title,
+              reportType: repair.report_type,
               ticketId: repair.ticket_id,
               assetCode: repair.asset_code,
               assetName: repair.asset_name,
@@ -68,6 +76,10 @@ export default async function handler(req, res) {
               status: repair.status,
               priority: repair.priority,
               assignedTo: repair.assigned_to,
+              technicianName: repair.technician_name,
+              reportedBy: repair.reported_by,
+              reporterPhone: repair.reporter_phone,
+              reportedAt: repair.reported_at,
               estimatedCost: repair.estimated_cost,
               actualCost: repair.actual_cost,
               dueDate: repair.due_date,
@@ -91,11 +103,13 @@ export default async function handler(req, res) {
               rep.ticket_id,
               rep.asset_code,
               a.name as asset_name,
-              v.name as village_name
+              v.name as village_name,
+              u.name as technician_name
             FROM repairs r
             LEFT JOIN reports rep ON r.report_id = rep.id
             LEFT JOIN assets a ON rep.asset_code = a.code
             LEFT JOIN villages v ON a.village_id = v.id
+            LEFT JOIN users u ON r.assigned_to = u.id
             WHERE 1=1
           `;
           const queryParams = [];
@@ -136,6 +150,7 @@ export default async function handler(req, res) {
             status: row.status,
             priority: row.priority,
             assignedTo: row.assigned_to,
+            technicianName: row.technician_name,
             estimatedCost: row.estimated_cost,
             actualCost: row.actual_cost,
             dueDate: row.due_date,
@@ -179,6 +194,14 @@ export default async function handler(req, res) {
           });
         }
 
+        // Validate: ต้องมีช่างผู้รับผิดชอบ
+        if (!repairAssignedTo || !repairAssignedTo.trim()) {
+          return res.status(400).json({
+            success: false,
+            error: 'กรุณาระบุช่างผู้รับผิดชอบ'
+          });
+        }
+
         // Verify report exists
         const reportExists = await pool.query(`
           SELECT r.id, r.title, r.asset_code
@@ -217,8 +240,8 @@ export default async function handler(req, res) {
           repairReportId,
           title.trim(),
           description.trim(),
-          'รอดำเนินการ',
-          priority || 'ปานกลาง',
+          REPAIR_STATUS.PENDING,
+          priority || PRIORITY.MEDIUM,
           repairAssignedTo?.trim() || '',
           estimatedCost ? parseFloat(estimatedCost) : null,
           dueDate || null,
@@ -276,9 +299,9 @@ export default async function handler(req, res) {
           });
         }
 
-        // Check if repair exists
+        // Check if repair exists and get current status
         const repairExists = await pool.query(
-          'SELECT id FROM repairs WHERE id = $1',
+          'SELECT id, status FROM repairs WHERE id = $1',
           [updateId]
         );
 
@@ -287,6 +310,25 @@ export default async function handler(req, res) {
             success: false,
             error: 'ไม่พบงานซ่อมที่ต้องการอัปเดต'
           });
+        }
+
+        const currentRepair = repairExists.rows[0];
+        
+        // Validate: ต้องมีช่างผู้รับผิดชอบ ยกเว้นงานที่ยกเลิก
+        const finalAssignedTo = updateAssignedTo?.trim() || null;
+        const finalStatus = updateStatus || currentRepair.status;
+        
+        if (!finalAssignedTo && finalStatus !== REPAIR_STATUS.CANCELLED) {
+          return res.status(400).json({
+            success: false,
+            error: 'กรุณาระบุช่างผู้รับผิดชอบ หรือเปลี่ยนสถานะเป็น "ยกเลิก"'
+          });
+        }
+        
+        // Auto-set completedDate if status changed to COMPLETED
+        let finalCompletedDate = updateCompletedDate;
+        if (updateStatus === REPAIR_STATUS.COMPLETED && currentRepair.status !== REPAIR_STATUS.COMPLETED) {
+          finalCompletedDate = new Date().toISOString();
         }
 
         const updateResult = await pool.query(`
@@ -308,13 +350,13 @@ export default async function handler(req, res) {
           updateId,
           updateStatus,
           updatePriority,
-          updateAssignedTo?.trim(),
+          finalAssignedTo,
           updateEstimatedCost ? parseFloat(updateEstimatedCost) : null,
           updateActualCost ? parseFloat(updateActualCost) : null,
           updateDueDate,
           updateStartDate,
-          updateCompletedDate,
-          updateNotes?.trim(),
+          finalCompletedDate,
+          updateNotes?.trim() || null,
           updateImages ? JSON.stringify(updateImages) : null
         ]);
 
