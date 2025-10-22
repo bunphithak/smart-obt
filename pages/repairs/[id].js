@@ -416,7 +416,10 @@ export default function RepairDetailPage() {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  ช่างผู้รับผิดชอบ
+                  ช่างผู้รับผิดชอบ {formData.status !== REPAIR_STATUS.CANCELLED && <span className="text-red-500">*</span>}
+                  {formData.status !== REPAIR_STATUS.CANCELLED && (
+                    <span className="text-xs text-gray-500 ml-2">(บังคับ)</span>
+                  )}
                 </label>
                 {isEditing ? (
                   <select
@@ -450,7 +453,7 @@ export default function RepairDetailPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    งบประมาณ (ประเมิน)
+                    งบประมาณ (ประเมิน) <span className="text-xs text-gray-500">(ไม่บังคับ)</span>
                   </label>
                   {isEditing ? (
                     <input
@@ -476,7 +479,7 @@ export default function RepairDetailPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    ค่าใช้จ่ายจริง
+                    ค่าใช้จ่ายจริง <span className="text-xs text-gray-500">(ไม่บังคับ)</span>
                   </label>
                   {isEditing ? (
                     <input
@@ -500,7 +503,7 @@ export default function RepairDetailPage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  กำหนดเสร็จ
+                  กำหนดเสร็จ <span className="text-xs text-gray-500">(ไม่บังคับ)</span>
                 </label>
                 {isEditing ? (
                   <input
@@ -575,7 +578,9 @@ export default function RepairDetailPage() {
 
           {/* Notes */}
           <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
-            <h2 className="text-lg font-semibold mb-4">บันทึกเพิ่มเติมรายละเอียดการซ่อม</h2>
+            <h2 className="text-lg font-semibold mb-4">
+              บันทึกเพิ่มเติมรายละเอียดการซ่อม <span className="text-xs text-gray-500 font-normal">(ไม่บังคับ)</span>
+            </h2>
 
             {isEditing ? (
               <textarea

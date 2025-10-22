@@ -591,7 +591,7 @@ export default function RepairPDF() {
                 </div>
               </div>
 
-              {/* ลายเซ็นผู้อำนวยการ */}
+              {/* ลายเซ็นปลัด */}
               <div className="mb-8">
                 <div className="flex justify-end">
                   <div className="text-center">
@@ -601,6 +601,35 @@ export default function RepairPDF() {
                       <p className="text-sm mt-2">( นาง มานิสา เติมสายทอง )</p>
                       <p className="text-sm">ปลัดองค์การบริหารส่วนตำบลละหาร</p>
                     </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* คำสั่งการนายก */}
+              <div className="approve">
+                <div className="mb-8 mt-4">
+                  <p className="font-bold mb-1">
+                    คำสั่งการ นายกองค์การบริหารส่วนตำบลละหาร
+                  </p>
+                  <div className="checkbox flex items-center space-x-8 mt-5">
+                    <label className="flex items-center">
+                      <input type="checkbox" className="mr-2" />
+                      <span>อนุมัติ</span>
+                    </label>
+                    <label className="flex items-center">
+                      <input type="checkbox" className="mr-2" />
+                      <span>ไม่อนุมัติ</span>
+                    </label>
+                  </div>
+                </div>
+                <div className="flex justify-end">
+                  <div className="text-center">
+                    <p className="text-sm">
+                      <span className="px-2">( นาย สรยุทธ พฤทธิไพรฑูรย์ )</span>
+                    </p>
+                    <p className="text-sm mt-1">
+                      นายกองค์การบริหารส่วนตำบลละหาร
+                    </p>
                   </div>
                 </div>
               </div>

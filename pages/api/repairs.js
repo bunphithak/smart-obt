@@ -325,8 +325,12 @@ export default async function handler(req, res) {
           });
         }
         
+        // Convert empty string to null for date fields
+        const finalDueDate = updateDueDate?.trim() || null;
+        const finalStartDate = updateStartDate?.trim() || null;
+        
         // Auto-set completedDate if status changed to COMPLETED
-        let finalCompletedDate = updateCompletedDate;
+        let finalCompletedDate = updateCompletedDate?.trim() || null;
         if (updateStatus === REPAIR_STATUS.COMPLETED && currentRepair.status !== REPAIR_STATUS.COMPLETED) {
           finalCompletedDate = new Date().toISOString();
         }
@@ -353,8 +357,8 @@ export default async function handler(req, res) {
           finalAssignedTo,
           updateEstimatedCost ? parseFloat(updateEstimatedCost) : null,
           updateActualCost ? parseFloat(updateActualCost) : null,
-          updateDueDate,
-          updateStartDate,
+          finalDueDate,
+          finalStartDate,
           finalCompletedDate,
           updateNotes?.trim() || null,
           updateImages ? JSON.stringify(updateImages) : null
