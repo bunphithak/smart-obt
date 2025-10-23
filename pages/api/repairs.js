@@ -42,11 +42,14 @@ export default async function handler(req, res) {
               rep.reporter_phone,
               rep.reported_at,
               a.name as asset_name,
+              a.category_id,
+              c.name as category_name,
               v.name as village_name,
               u.name as technician_name
             FROM repairs r
             LEFT JOIN reports rep ON r.report_id = rep.id
             LEFT JOIN assets a ON rep.asset_code = a.code
+            LEFT JOIN categories c ON a.category_id = c.id
             LEFT JOIN villages v ON a.village_id = v.id
             LEFT JOIN users u ON r.assigned_to = u.id
             WHERE r.id = $1
@@ -60,6 +63,51 @@ export default async function handler(req, res) {
           }
 
           const repair = result.rows[0];
+          
+          // Parse images to separate report images and completion images
+          let reportImages = [];
+          let completionImages = [];
+          let allImages = [];
+          
+          // Get report images from the reports table
+          const reportResult = await pool.query(`
+            SELECT images FROM reports WHERE id = $1
+          `, [repair.report_id]);
+          
+          if (reportResult.rows.length > 0 && reportResult.rows[0].images) {
+            try {
+              const parsedImages = typeof reportResult.rows[0].images === 'string' 
+                ? JSON.parse(reportResult.rows[0].images) 
+                : reportResult.rows[0].images;
+              if (Array.isArray(parsedImages)) {
+                reportImages = parsedImages;
+              }
+            } catch (e) {
+              console.error('Error parsing report images:', e);
+            }
+          }
+          
+          // Parse repair images (which now contains merged images)
+          if (repair.images) {
+            try {
+              const parsedImages = typeof repair.images === 'string' 
+                ? JSON.parse(repair.images) 
+                : repair.images;
+              if (Array.isArray(parsedImages)) {
+                allImages = parsedImages;
+                // If we have report images, completion images are the ones not in report images
+                if (reportImages.length > 0) {
+                  completionImages = parsedImages.filter(img => !reportImages.includes(img));
+                } else {
+                  // If no report images, assume all are completion images
+                  completionImages = parsedImages;
+                }
+              }
+            } catch (e) {
+              console.error('Error parsing repair images:', e);
+            }
+          }
+          
           res.status(200).json({ 
             success: true, 
             data: {
@@ -70,6 +118,7 @@ export default async function handler(req, res) {
               ticketId: repair.ticket_id,
               assetCode: repair.asset_code,
               assetName: repair.asset_name,
+              categoryName: repair.category_name,
               villageName: repair.village_name,
               title: repair.title,
               description: repair.description,
@@ -89,7 +138,9 @@ export default async function handler(req, res) {
               location: repair.location,
               latitude: repair.latitude,
               longitude: repair.longitude,
-              images: repair.images || [],
+              images: allImages, // All images for backward compatibility
+              reportImages: reportImages, // Original report images
+              completionImages: completionImages, // Completion images
               createdAt: repair.created_at,
               updatedAt: repair.updated_at
             }
@@ -102,12 +153,22 @@ export default async function handler(req, res) {
               rep.title as report_title,
               rep.ticket_id,
               rep.asset_code,
+              rep.report_type,
+              rep.reported_by,
+              rep.reporter_phone,
+              rep.reported_at,
+              rep.location,
+              rep.coordinates,
+              rep.images,
               a.name as asset_name,
+              a.category_id,
+              c.name as category_name,
               v.name as village_name,
               u.name as technician_name
             FROM repairs r
             LEFT JOIN reports rep ON r.report_id = rep.id
             LEFT JOIN assets a ON rep.asset_code = a.code
+            LEFT JOIN categories c ON a.category_id = c.id
             LEFT JOIN villages v ON a.village_id = v.id
             LEFT JOIN users u ON r.assigned_to = u.id
             WHERE 1=1
@@ -128,8 +189,8 @@ export default async function handler(req, res) {
           }
 
           if (assignedTo) {
-            query += ` AND r.assigned_to ILIKE $${paramIndex}`;
-            queryParams.push(`%${assignedTo}%`);
+            query += ` AND r.assigned_to = $${paramIndex}`;
+            queryParams.push(assignedTo);
             paramIndex++;
           }
 
@@ -141,9 +202,11 @@ export default async function handler(req, res) {
             id: row.id,
             reportId: row.report_id,
             reportTitle: row.report_title,
+            reportType: row.report_type,
             ticketId: row.ticket_id,
             assetCode: row.asset_code,
             assetName: row.asset_name,
+            categoryName: row.category_name,
             villageName: row.village_name,
             title: row.title,
             description: row.description,
@@ -151,6 +214,11 @@ export default async function handler(req, res) {
             priority: row.priority,
             assignedTo: row.assigned_to,
             technicianName: row.technician_name,
+            reportedBy: row.reported_by,
+            reporterPhone: row.reporter_phone,
+            reportedAt: row.reported_at,
+            location: row.location,
+            coordinates: row.coordinates,
             estimatedCost: row.estimated_cost,
             actualCost: row.actual_cost,
             dueDate: row.due_date,

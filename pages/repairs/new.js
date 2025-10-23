@@ -1,7 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
+import dynamic from 'next/dynamic';
 import { REPAIR_STATUS, PRIORITY, PRIORITY_LABELS } from '../../lib/constants';
+
+// Dynamic import for MapPicker (client-side only)
+const MapPicker = dynamic(() => import("../../components/MapPicker"), {
+  ssr: false,
+});
 
 export default function NewRepairPage() {
   const router = useRouter();
@@ -11,9 +17,13 @@ export default function NewRepairPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [isClient, setIsClient] = useState(false);
-  const [users, setUsers] = useState([]);
+  const [technicians, setTechnicians] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [problemTypes, setProblemTypes] = useState([]);
+  const [currentUser, setCurrentUser] = useState(null);
   const [showAlertModal, setShowAlertModal] = useState(false);
   const [alertData, setAlertData] = useState({ type: 'info', title: '', message: '' });
+  const [showMap, setShowMap] = useState(false);
   
   const [formData, setFormData] = useState({
     title: '',
@@ -22,23 +32,84 @@ export default function NewRepairPage() {
     priority: PRIORITY.MEDIUM,
     estimatedCost: '',
     dueDate: '',
-    notes: ''
+    notes: '',
+    categoryId: '',
+    problemType: '',
+    reportedBy: '',
+    locationName: '',
+    locationAddress: '',
+    latitude: null,
+    longitude: null
   });
 
   useEffect(() => {
     setIsClient(true);
   }, []);
 
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
-      const res = await fetch('/api/users');
+      const res = await fetch('/api/users?role=technician');
       const data = await res.json();
+      console.log('Technicians API response:', data); // Debug log
       if (data.success) {
-        setUsers(data.data);
+        setTechnicians(data.data);
+        console.log('Technicians loaded:', data.data.length); // Debug log
+      } else {
+        console.error('Failed to fetch technicians:', data.error);
+        showAlert('error', 'ไม่สามารถโหลดข้อมูลช่างได้', data.error || 'เกิดข้อผิดพลาดในการโหลดข้อมูลช่าง');
       }
     } catch (error) {
       console.error('Error fetching users:', error);
+      showAlert('error', 'ไม่สามารถโหลดข้อมูลช่างได้', 'เกิดข้อผิดพลาดในการเชื่อมต่อกับเซิร์ฟเวอร์');
     }
+  }, []);
+
+  const fetchCategories = async () => {
+    try {
+      const res = await fetch('/api/categories');
+      const data = await res.json();
+      if (data.success) {
+        setCategories(data.data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+    }
+  };
+
+  const fetchProblemTypes = async () => {
+    try {
+      const res = await fetch('/api/enums?type=problem_types');
+      const data = await res.json();
+      if (data.success) {
+        setProblemTypes(data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching problem types:', error);
+    }
+  };
+
+  const getCurrentUser = () => {
+    try {
+      const userStr = localStorage.getItem('user');
+      if (userStr) {
+        const user = JSON.parse(userStr);
+        setCurrentUser(user);
+        return user;
+      }
+    } catch (error) {
+      console.error('Error getting current user:', error);
+    }
+    return null;
+  };
+
+  const handleLocationSelect = (lat, lng, address) => {
+    setFormData(prev => ({
+      ...prev,
+      latitude: lat,
+      longitude: lng,
+      locationAddress: address || ''
+    }));
+    setShowMap(false);
   };
 
   const fetchReportDetail = useCallback(async () => {
@@ -66,13 +137,25 @@ export default function NewRepairPage() {
   useEffect(() => {
     if (isClient) {
       fetchUsers();
+      fetchCategories();
+      fetchProblemTypes();
+      const user = getCurrentUser();
+      
+      // Set reportedBy to current user
+      if (user) {
+        setFormData(prev => ({
+          ...prev,
+          reportedBy: user.fullName || user.username || user.name
+        }));
+      }
+      
       if (reportId) {
         fetchReportDetail();
       } else {
         setLoading(false);
       }
     }
-  }, [isClient, reportId, fetchReportDetail]);
+  }, [isClient, reportId, fetchReportDetail, fetchUsers]);
 
   const showAlert = (type, title, message) => {
     setAlertData({ type, title, message });
@@ -94,9 +177,15 @@ export default function NewRepairPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
+    console.log('Form submission started', { formData, technicians: technicians.length }); // Debug log
+    
     // Validate: ต้องมีช่างผู้รับผิดชอบ
     if (!formData.assignedTo) {
-      showAlert('error', 'ไม่สามารถบันทึกได้', 'กรุณาระบุช่างผู้รับผิดชอบ');
+      if (technicians.length === 0) {
+        showAlert('error', 'ไม่สามารถบันทึกได้', 'ไม่พบช่างในระบบ กรุณาติดต่อผู้ดูแลระบบ');
+      } else {
+        showAlert('error', 'ไม่สามารถบันทึกได้', 'กรุณาระบุช่างผู้รับผิดชอบ');
+      }
       return;
     }
     
@@ -108,7 +197,10 @@ export default function NewRepairPage() {
         reportId: reportId || null,
         assetCode: report?.assetCode || null,
         status: REPAIR_STATUS.PENDING,
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        categoryId: formData.categoryId || null,
+        problemType: formData.problemType || null,
+        reportedBy: formData.reportedBy || currentUser?.fullName || currentUser?.username || currentUser?.name || 'ไม่ระบุ'
       };
 
       const res = await fetch('/api/repairs', {
@@ -237,13 +329,22 @@ export default function NewRepairPage() {
                       required
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
-                      <option value="">เลือกผู้รับผิดชอบ</option>
-                      {users.map(user => (
-                        <option key={user.id} value={user.id}>
-                          {user.name} ({user.role})
-                        </option>
-                      ))}
+                      <option value="">เลือกช่างผู้รับผิดชอบ</option>
+                      {technicians.length === 0 ? (
+                        <option value="" disabled>ไม่พบช่างในระบบ</option>
+                      ) : (
+                        technicians.map(technician => (
+                          <option key={technician.id} value={technician.id}>
+                            {technician.name} ({technician.username})
+                          </option>
+                        ))
+                      )}
                     </select>
+                    {technicians.length === 0 && (
+                      <p className="text-red-500 text-sm mt-1">
+                        ⚠️ ไม่พบช่างในระบบ กรุณาติดต่อผู้ดูแลระบบ
+                      </p>
+                    )}
                   </div>
 
                   <div>
@@ -263,6 +364,96 @@ export default function NewRepairPage() {
                       <option value={PRIORITY.URGENT}>{PRIORITY_LABELS[PRIORITY.URGENT]}</option>
                     </select>
                   </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      หมวดหมู่
+                    </label>
+                    <select
+                      name="categoryId"
+                      value={formData.categoryId}
+                      onChange={handleChange}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">เลือกหมวดหมู่</option>
+                      {categories.map(category => (
+                        <option key={category.id} value={category.id}>
+                          {category.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      ประเภทปัญหา
+                    </label>
+                    <select
+                      name="problemType"
+                      value={formData.problemType}
+                      onChange={handleChange}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">เลือกประเภทปัญหา</option>
+                      {problemTypes.map(type => (
+                        <option key={type.value} value={type.value}>
+                          {type.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    ชื่อผู้แจ้ง
+                  </label>
+                  <input
+                    type="text"
+                    name="reportedBy"
+                    value={formData.reportedBy}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
+                    placeholder="ชื่อผู้แจ้ง"
+                    readOnly
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    สถานที่เกิดปัญหา
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      name="locationAddress"
+                      value={formData.locationAddress}
+                      onChange={handleChange}
+                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="ระบุที่อยู่ หรือคลิก 'ปักหมุด' เพื่อเลือกจากแผนที่"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowMap(true)}
+                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2 transition-colors"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                      ปักหมุด
+                    </button>
+                  </div>
+                  {formData.latitude && formData.longitude && (
+                    <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      <strong>พิกัดที่เลือก:</strong> {Number(formData.latitude).toFixed(6)}, {Number(formData.longitude).toFixed(6)}
+                    </p>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -314,10 +505,10 @@ export default function NewRepairPage() {
                 <div className="flex gap-3 pt-4">
                   <button
                     type="submit"
-                    disabled={submitting}
+                    disabled={submitting || technicians.length === 0}
                     className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
                   >
-                    {submitting ? 'กำลังบันทึก...' : 'สร้างงานซ่อม'}
+                    {submitting ? 'กำลังบันทึก...' : technicians.length === 0 ? 'ไม่สามารถสร้างงานซ่อมได้' : 'สร้างงานซ่อม'}
                   </button>
                   <button
                     type="button"
@@ -467,6 +658,32 @@ export default function NewRepairPage() {
                     ตกลง
                   </button>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Map Modal */}
+        {showMap && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+              <div className="p-4 border-b border-gray-200 flex justify-between items-center">
+                <h3 className="text-lg font-semibold text-gray-900">เลือกตำแหน่งบนแผนที่</h3>
+                <button
+                  onClick={() => setShowMap(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <div className="p-4">
+                <MapPicker
+                  initialLat={formData.latitude || 13.7563}
+                  initialLng={formData.longitude || 100.5018}
+                  onLocationSelect={handleLocationSelect}
+                />
               </div>
             </div>
           </div>

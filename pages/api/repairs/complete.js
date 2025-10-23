@@ -1,7 +1,7 @@
 // Repairs Complete API - Connected to PostgreSQL Database
 require('dotenv').config({ path: '.env.local' });
 const { Pool } = require('pg');
-const { REPAIR_STATUS } = require('../../../lib/constants');
+const { REPAIR_STATUS, REPORT_STATUS } = require('../../../lib/constants');
 
 const pool = new Pool({
   host: process.env.DB_HOST || 'localhost',
@@ -74,6 +74,39 @@ export default async function handler(req, res) {
       afterImages: afterImages ? afterImages.length : 0
     });
 
+    // Get original report images to merge with completion images
+    const repairData = await pool.query(`
+      SELECT r.images as repair_images, rep.images as report_images
+      FROM repairs r
+      LEFT JOIN reports rep ON r.report_id = rep.id
+      WHERE r.id = $1
+    `, [id]);
+
+    let mergedImages = [];
+    
+    if (repairData.rows.length > 0) {
+      const row = repairData.rows[0];
+      
+      // Get original report images
+      if (row.report_images) {
+        try {
+          const reportImages = typeof row.report_images === 'string' 
+            ? JSON.parse(row.report_images) 
+            : row.report_images;
+          if (Array.isArray(reportImages)) {
+            mergedImages = [...reportImages];
+          }
+        } catch (e) {
+          console.error('Error parsing report images:', e);
+        }
+      }
+      
+      // Add completion images
+      if (afterImages && Array.isArray(afterImages)) {
+        mergedImages = [...mergedImages, ...afterImages];
+      }
+    }
+
     // Update repair record
     const updateResult = await pool.query(`
       UPDATE repairs 
@@ -91,7 +124,7 @@ export default async function handler(req, res) {
       actualCost ? parseFloat(actualCost) : null,
       completedDate || new Date().toISOString(),
       notes?.trim() || '',
-      afterImages ? JSON.stringify(afterImages) : null
+      mergedImages.length > 0 ? JSON.stringify(mergedImages) : null
     ]);
 
     // Update related report status if repair is completed
@@ -103,7 +136,7 @@ export default async function handler(req, res) {
         WHERE id = (
           SELECT report_id FROM repairs WHERE id = $2
         )
-      `, [REPAIR_STATUS.COMPLETED, id]);
+      `, [REPORT_STATUS.APPROVED, id]); // ใช้สถานะ "อนุมัติ" เมื่อซ่อมเสร็จ
     }
 
     const updatedRepair = updateResult.rows[0];
@@ -117,7 +150,13 @@ export default async function handler(req, res) {
         actualCost: updatedRepair.actual_cost,
         completedDate: updatedRepair.completed_date,
         notes: updatedRepair.notes,
-        afterImages: updatedRepair.images ? JSON.parse(updatedRepair.images) : [],
+        afterImages: (() => {
+          try {
+            return updatedRepair.images ? JSON.parse(updatedRepair.images) : [];
+          } catch (e) {
+            return [];
+          }
+        })(),
         updatedAt: updatedRepair.updated_at
       }
     });

@@ -4,7 +4,7 @@ import {
   getReportStatus, 
   getPriority 
 } from '../../lib/masterData';
-import { REPORT_STATUS_LABELS, PRIORITY_LABELS } from '../../lib/constants';
+import { REPORT_STATUS_LABELS, PRIORITY_LABELS, REPORT_STATUS_COLORS } from '../../lib/constants';
 
 export default function ReportsPage() {
   const router = useRouter();
@@ -412,12 +412,12 @@ export default function ReportsPage() {
             {reports.filter(r => r.reportType === activeTab).length}
           </p>
         </div>
-        {reportStatusList.slice(0, 3).map((status, index) => {
-          const colorClasses = ['text-yellow-600', 'text-red-600', 'text-green-600'];
+        {reportStatusList.slice(0, 3).map((status) => {
+          const statusColor = REPORT_STATUS_COLORS[status.value]?.primary || 'text-gray-600';
           return (
             <div key={status.value} className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
               <p className="text-sm text-gray-500 dark:text-gray-400">{status.label}</p>
-              <p className={`mt-2 text-2xl font-bold ${colorClasses[index]} dark:${colorClasses[index].replace('text-', 'text-')}`}>
+              <p className={`mt-2 text-2xl font-bold ${statusColor} dark:${statusColor}`}>
                 {reports.filter(r => r.reportType === activeTab && r.status === status.value).length}
               </p>
             </div>

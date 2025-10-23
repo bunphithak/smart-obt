@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import AlertModal from '../../components/AlertModal';
-import { REPAIR_STATUS, REPAIR_STATUS_LABELS, getRepairStatusColor } from '../../lib/constants';
+import { REPAIR_STATUS, REPAIR_STATUS_LABELS, PRIORITY_LABELS, getRepairStatusColor } from '../../lib/constants';
 
 export default function TechnicianDashboard() {
   const router = useRouter();
@@ -17,8 +17,13 @@ export default function TechnicianDashboard() {
     // Check if user is logged in
     const userStr = localStorage.getItem('technicianUser');
     if (userStr) {
-      const user = JSON.parse(userStr);
-      setCurrentUser(user);
+      try {
+        const user = JSON.parse(userStr);
+        setCurrentUser(user);
+      } catch (error) {
+        console.error('Error parsing technicianUser:', error);
+        router.push('/technician/login');
+      }
     } else {
       // Redirect to login if not logged in
       router.push('/technician/login');
@@ -38,11 +43,21 @@ export default function TechnicianDashboard() {
 
   const fetchMyRepairs = async () => {
     try {
-      const technicianName = currentUser?.name || 'ช่าง A';
-      const res = await fetch(`/api/repairs?assignedTo=${technicianName}`);
+      const technicianId = currentUser?.id;
+      
+      if (!technicianId) {
+        console.error('No technician ID found');
+        setLoading(false);
+        return;
+      }
+      
+      const res = await fetch(`/api/repairs?assignedTo=${technicianId}`);
       const data = await res.json();
+      
       if (data.success) {
         setRepairs(data.data);
+      } else {
+        console.error('API Error:', data.error);
       }
       setLoading(false);
     } catch (error) {
@@ -62,46 +77,147 @@ export default function TechnicianDashboard() {
 
   const handleMapNavigation = async (repair) => {
     try {
-      // Fetch asset details to get location
-      const res = await fetch(`/api/assets?code=${repair.assetCode}`);
-      const data = await res.json();
+      let lat, lng;
       
-      if (data.success && data.data.length > 0) {
-        const asset = data.data[0];
-        
-        if (asset.latitude && asset.longitude) {
-          // Use exact coordinates - works better on mobile
-          // Format: https://maps.google.com/maps?q=lat,lng
-          const mapUrl = `https://maps.google.com/maps?q=${asset.latitude},${asset.longitude}`;
-          
-          // Create a temporary link and click it (works better on mobile than window.open)
-          const link = document.createElement('a');
-          link.href = mapUrl;
-          link.target = '_blank';
-          link.rel = 'noopener noreferrer';
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-        } else if (asset.locationName) {
-          // Use location name if coordinates not available
-          const mapUrl = `https://maps.google.com/maps/search/?api=1&query=${encodeURIComponent(asset.locationName)}`;
-          
-          const link = document.createElement('a');
-          link.href = mapUrl;
-          link.target = '_blank';
-          link.rel = 'noopener noreferrer';
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-        } else {
-          showAlert('ไม่พบตำแหน่ง', 'ไม่มีข้อมูลตำแหน่งทรัพย์สินสำหรับงานนี้', 'warning');
+      // Check if repair has coordinates directly
+      if (repair.coordinates) {
+        // Check for {lat, lng} format
+        if (repair.coordinates.lat && repair.coordinates.lng) {
+          lat = repair.coordinates.lat;
+          lng = repair.coordinates.lng;
         }
-      } else {
-        showAlert('ไม่พบข้อมูล', 'ไม่พบข้อมูลทรัพย์สิน', 'warning');
+        // Check for {latitude, longitude} format
+        else if (repair.coordinates.latitude && repair.coordinates.longitude) {
+          lat = repair.coordinates.latitude;
+          lng = repair.coordinates.longitude;
+        }
       }
+
+      // If no coordinates from repair.coordinates, check location field
+      if (!lat || !lng) {
+        if (repair.location) {
+          // Try to parse location as JSON coordinates
+          try {
+            const locationData = JSON.parse(repair.location);
+            if (locationData.latitude && locationData.longitude) {
+              lat = locationData.latitude;
+              lng = locationData.longitude;
+            }
+          } catch (e) {
+            // If not JSON, treat as location name
+          }
+        }
+      }
+
+      // If we have coordinates, use them
+      if (lat && lng) {
+        // Detect platform
+        const userAgent = navigator.userAgent.toLowerCase();
+        const isIOS = /iphone|ipad|ipod/.test(userAgent);
+        const isAndroid = /android/.test(userAgent);
+        
+        let mapUrl;
+        
+        if (isIOS) {
+          // iOS: Try Apple Maps first, fallback to Google Maps
+          mapUrl = `maps://maps.google.com/maps?q=${lat},${lng}`;
+        } else if (isAndroid) {
+          // Android: Use Google Maps
+          mapUrl = `geo:${lat},${lng}?q=${lat},${lng}`;
+        } else {
+          // Desktop/Other: Use Google Maps web
+          mapUrl = `https://maps.google.com/maps?q=${lat},${lng}`;
+        }
+        
+        // Try to open native app first
+        const link = document.createElement('a');
+        link.href = mapUrl;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Fallback to web version after a short delay
+        setTimeout(() => {
+          const webMapUrl = `https://maps.google.com/maps?q=${lat},${lng}`;
+          window.open(webMapUrl, '_blank');
+        }, 1000);
+        
+        return;
+      }
+
+      // If repair has location name, use it
+      if (repair.location) {
+        const mapUrl = `https://maps.google.com/maps/search/?api=1&query=${encodeURIComponent(repair.location)}`;
+        
+        const link = document.createElement('a');
+        link.href = mapUrl;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        return;
+      }
+
+      // If repair has assetCode, try to fetch asset details
+      if (repair.assetCode) {
+        const res = await fetch(`/api/assets?code=${repair.assetCode}`);
+        const data = await res.json();
+        
+        if (data.success && data.data.length > 0) {
+          const asset = data.data[0];
+          
+          if (asset.latitude && asset.longitude) {
+            const userAgent = navigator.userAgent.toLowerCase();
+            const isIOS = /iphone|ipad|ipod/.test(userAgent);
+            const isAndroid = /android/.test(userAgent);
+            
+            let mapUrl;
+            
+            if (isIOS) {
+              mapUrl = `maps://maps.google.com/maps?q=${asset.latitude},${asset.longitude}`;
+            } else if (isAndroid) {
+              mapUrl = `geo:${asset.latitude},${asset.longitude}?q=${asset.latitude},${asset.longitude}`;
+            } else {
+              mapUrl = `https://maps.google.com/maps?q=${asset.latitude},${asset.longitude}`;
+            }
+            
+            const link = document.createElement('a');
+            link.href = mapUrl;
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            setTimeout(() => {
+              const webMapUrl = `https://maps.google.com/maps?q=${asset.latitude},${asset.longitude}`;
+              window.open(webMapUrl, '_blank');
+            }, 1000);
+            
+            return;
+          } else if (asset.locationName) {
+            const mapUrl = `https://maps.google.com/maps/search/?api=1&query=${encodeURIComponent(asset.locationName)}`;
+            
+            const link = document.createElement('a');
+            link.href = mapUrl;
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            return;
+          }
+        }
+      }
+
+      // If no location data available
+      showAlert('ไม่พบตำแหน่ง', 'ไม่มีข้อมูลตำแหน่งสำหรับงานนี้', 'warning');
     } catch (error) {
-      console.error('Error fetching asset location:', error);
-      showAlert('เกิดข้อผิดพลาด', 'เกิดข้อผิดพลาดในการโหลดตำแหน่ง', 'error');
+      console.error('Error opening map:', error);
+      showAlert('เกิดข้อผิดพลาด', 'ไม่สามารถเปิดแผนที่ได้', 'error');
     }
   };
 
@@ -123,13 +239,13 @@ export default function TechnicianDashboard() {
 
   const getPriorityColor = (priority) => {
     switch (priority) {
-      case 'ฉุกเฉิน':
+      case 'URGENT':
         return 'text-red-600';
-      case 'สูง':
+      case 'HIGH':
         return 'text-orange-600';
-      case 'ปานกลาง':
+      case 'MEDIUM':
         return 'text-yellow-600';
-      case 'ต่ำ':
+      case 'LOW':
         return 'text-green-600';
       default:
         return 'text-gray-600';
@@ -142,6 +258,49 @@ export default function TechnicianDashboard() {
     if (filter === 'inprogress') return repair.status === REPAIR_STATUS.IN_PROGRESS;
     if (filter === 'completed') return repair.status === REPAIR_STATUS.COMPLETED;
     return true;
+  }).sort((a, b) => {
+    // Priority order: PENDING -> IN_PROGRESS -> COMPLETED -> CANCELLED
+    const statusOrder = {
+      [REPAIR_STATUS.PENDING]: 1,
+      [REPAIR_STATUS.IN_PROGRESS]: 2,
+      [REPAIR_STATUS.COMPLETED]: 3,
+      [REPAIR_STATUS.CANCELLED]: 4
+    };
+    
+    const statusA = statusOrder[a.status] || 5;
+    const statusB = statusOrder[b.status] || 5;
+    
+    // First sort by status priority
+    if (statusA !== statusB) {
+      return statusA - statusB;
+    }
+    
+    // If same status, sort by priority (URGENT -> HIGH -> MEDIUM -> LOW)
+    const priorityOrder = {
+      'URGENT': 1,
+      'HIGH': 2,
+      'MEDIUM': 3,
+      'LOW': 4
+    };
+    
+    const priorityA = priorityOrder[a.priority] || 5;
+    const priorityB = priorityOrder[b.priority] || 5;
+    
+    if (priorityA !== priorityB) {
+      return priorityA - priorityB;
+    }
+    
+    // If same status and priority, sort by due date (earliest first)
+    if (a.dueDate && b.dueDate) {
+      return new Date(a.dueDate) - new Date(b.dueDate);
+    }
+    
+    // If one has due date and other doesn't, prioritize the one with due date
+    if (a.dueDate && !b.dueDate) return -1;
+    if (!a.dueDate && b.dueDate) return 1;
+    
+    // Finally, sort by creation date (newest first)
+    return new Date(b.createdAt) - new Date(a.createdAt);
   });
 
   if (!currentUser) {
@@ -177,11 +336,12 @@ export default function TechnicianDashboard() {
               <button
                 onClick={handleLogout}
                 className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2"
+                title="ออกจากระบบ"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                 </svg>
-                ออกจากระบบ
+                <span className="hidden sm:inline">ออกจากระบบ</span>
               </button>
             </div>
           </div>
@@ -225,7 +385,7 @@ export default function TechnicianDashboard() {
                 <div>
                   <p className="text-sm text-gray-500">กำลังดำเนินการ</p>
                   <p className="text-3xl font-bold text-blue-600">
-                    {repairs.filter(r => r.status === 'กำลังดำเนินการ').length}
+                    {repairs.filter(r => r.status === REPAIR_STATUS.IN_PROGRESS).length}
                   </p>
                 </div>
                 <div className="bg-blue-100 rounded-full p-3">
@@ -286,7 +446,7 @@ export default function TechnicianDashboard() {
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
                 >
-                  กำลังดำเนินการ ({repairs.filter(r => r.status === 'กำลังดำเนินการ').length})
+                  กำลังดำเนินการ ({repairs.filter(r => r.status === REPAIR_STATUS.IN_PROGRESS).length})
                 </button>
                 <button
                   onClick={() => setFilter('completed')}
@@ -315,7 +475,11 @@ export default function TechnicianDashboard() {
               filteredRepairs.map((repair) => (
                 <div
                   key={repair.id}
-                  className="bg-white rounded-lg shadow hover:shadow-md transition-shadow cursor-pointer"
+                  className={`rounded-lg shadow hover:shadow-md transition-shadow cursor-pointer ${
+                    repair.status === REPAIR_STATUS.PENDING 
+                      ? 'bg-gradient-to-r from-yellow-50 to-orange-50 border-l-4 border-yellow-400' 
+                      : 'bg-white'
+                  }`}
                   onClick={() => handleViewDetail(repair)}
                 >
                   <div className="p-6">
@@ -326,22 +490,53 @@ export default function TechnicianDashboard() {
                             {repair.title}
                           </h3>
                           <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(repair.status)}`}>
-                            {repair.status}
+                            {getStatusLabel(repair.status)}
                           </span>
+                          {repair.status === REPAIR_STATUS.PENDING && (
+                            <span className="px-2 py-1 bg-red-100 text-red-800 text-xs font-bold rounded-full animate-pulse">
+                              ต้องทำ
+                            </span>
+                          )}
                         </div>
                         <p className="text-sm text-gray-600 mb-2">
                           {repair.description}
                         </p>
                         <div className="flex items-center gap-4 text-sm">
                           <span className="text-gray-500">
-                            รหัสงาน: <span className="font-mono text-gray-900">#{repair.id}</span>
+                            รหัสงาน: <span className="font-mono text-gray-900">#{repair.ticketId || repair.id}</span>
                           </span>
                           <span className={`font-medium ${getPriorityColor(repair.priority)}`}>
-                            ● {repair.priority}
+                            ● {PRIORITY_LABELS[repair.priority] || repair.priority}
                           </span>
+                          <span className="text-gray-500">
+                            ประเภท: <span className="text-gray-900 font-medium">
+                              {repair.reportType === 'repair' ? 'แจ้งซ่อม' : 'คำร้อง'}
+                            </span>
+                          </span>
+                          {repair.categoryName && (
+                            <span className="text-gray-500">
+                              หมวดหมู่: <span className="text-gray-900 font-medium">{repair.categoryName}</span>
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-4 text-sm mt-2">
+                          {repair.reportedBy && (
+                            <span className="text-gray-500">
+                              ผู้แจ้ง: <span className="text-gray-900 font-medium">{repair.reportedBy}</span>
+                            </span>
+                          )}
+                          {repair.reportedAt && (
+                            <span className="text-gray-500">
+                              แจ้งเมื่อ: <span className="text-gray-900 font-medium">
+                                {new Date(repair.reportedAt).toLocaleDateString('th-TH')}
+                              </span>
+                            </span>
+                          )}
                           {repair.dueDate && (
                             <span className="text-gray-500">
-                              กำหนดเสร็จ: {new Date(repair.dueDate).toLocaleDateString('th-TH')}
+                              กำหนดเสร็จ: <span className="text-gray-900 font-medium">
+                                {new Date(repair.dueDate).toLocaleDateString('th-TH')}
+                              </span>
                             </span>
                           )}
                         </div>
@@ -363,19 +558,21 @@ export default function TechnicianDashboard() {
                         </div>
                       )}
                       
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation(); // Prevent card click
-                          handleMapNavigation(repair);
-                        }}
-                        className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                        </svg>
-                        นำทาง
-                      </button>
+                      {repair.status !== REPAIR_STATUS.COMPLETED && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation(); // Prevent card click
+                            handleMapNavigation(repair);
+                          }}
+                          className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                          </svg>
+                          นำทาง
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>

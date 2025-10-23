@@ -41,8 +41,9 @@ const upload = multer({
   }
 });
 
-// Middleware to handle single file upload
+// Middleware to handle both single and multiple file uploads
 const uploadSingle = upload.single('file');
+const uploadMultiple = upload.array('files', 10); // Allow up to 10 files
 
 export default async function handler(req, res) {
   // Set CORS headers
@@ -58,35 +59,99 @@ export default async function handler(req, res) {
 
   try {
     if (req.method === 'POST') {
-      // Handle file upload
-      uploadSingle(req, res, (err) => {
-        if (err) {
-          console.error('Upload error:', err);
-          return res.status(400).json({
-            success: false,
-            error: err.message || 'Upload failed'
-          });
-        }
+      // Check if it's multiple files upload
+      if (req.headers['content-type'] && req.headers['content-type'].includes('multipart/form-data')) {
+        // Try multiple files first
+        uploadMultiple(req, res, (err) => {
+          if (err) {
+            // If multiple files failed, try single file
+            uploadSingle(req, res, (err) => {
+              if (err) {
+                console.error('Upload error:', err);
+                return res.status(400).json({
+                  success: false,
+                  error: err.message || 'Upload failed'
+                });
+              }
 
-        if (!req.file) {
-          return res.status(400).json({
-            success: false,
-            error: 'No file uploaded'
-          });
-        }
+              if (!req.file) {
+                return res.status(400).json({
+                  success: false,
+                  error: 'No file uploaded'
+                });
+              }
 
-        // Return success response
-        const fileUrl = `/uploads/${req.file.filename}`;
-        
-        res.status(200).json({
-          success: true,
-          url: fileUrl,
-          path: req.file.filename,
-          name: req.file.originalname,
-          size: req.file.size,
-          type: req.file.mimetype
+              // Return success response for single file
+              const fileUrl = `/uploads/${req.file.filename}`;
+              
+              res.status(200).json({
+                success: true,
+                url: fileUrl,
+                urls: [fileUrl], // Also return as array for compatibility
+                path: req.file.filename,
+                name: req.file.originalname,
+                size: req.file.size,
+                type: req.file.mimetype
+              });
+            });
+          } else {
+            // Multiple files success
+            if (!req.files || req.files.length === 0) {
+              return res.status(400).json({
+                success: false,
+                error: 'No files uploaded'
+              });
+            }
+
+            // Return success response with multiple URLs
+            const urls = req.files.map(file => `/uploads/${file.filename}`);
+            
+            res.status(200).json({
+              success: true,
+              urls: urls,
+              url: urls[0], // Also return first URL for compatibility
+              files: req.files.map(file => ({
+                url: `/uploads/${file.filename}`,
+                path: file.filename,
+                name: file.originalname,
+                size: file.size,
+                type: file.mimetype
+              }))
+            });
+          }
         });
-      });
+      } else {
+        // Default to single file upload
+        uploadSingle(req, res, (err) => {
+          if (err) {
+            console.error('Upload error:', err);
+            return res.status(400).json({
+              success: false,
+              error: err.message || 'Upload failed'
+            });
+          }
+
+          if (!req.file) {
+            return res.status(400).json({
+              success: false,
+              error: 'No file uploaded'
+            });
+          }
+
+          // Return success response
+          const fileUrl = `/uploads/${req.file.filename}`;
+          
+          res.status(200).json({
+            success: true,
+            url: fileUrl,
+            urls: [fileUrl], // Also return as array for compatibility
+            path: req.file.filename,
+            name: req.file.originalname,
+            size: req.file.size,
+            type: req.file.mimetype
+          });
+        });
+      }
 
     } else if (req.method === 'DELETE') {
       // Handle file deletion

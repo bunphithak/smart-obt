@@ -53,6 +53,7 @@ export default function RepairDetailPage() {
     location: "",
     latitude: null,
     longitude: null,
+    completionImages: [] // เพิ่มสำหรับเก็บรูปปิดงาน
   });
 
   useEffect(() => {
@@ -139,11 +140,15 @@ export default function RepairDetailPage() {
     try {
       const res = await fetch("/api/users?role=technician");
       const data = await res.json();
+      console.log('Technicians API response (edit page):', data); // Debug log
       if (data.success) {
         setTechnicians(data.data || []);
+        console.log('Technicians loaded (edit page):', data.data?.length || 0); // Debug log
+      } else {
+        console.error('Failed to fetch technicians (edit page):', data.error);
       }
     } catch (error) {
-      console.error("Error fetching technicians:", error);
+      console.error("Error fetching technicians (edit page):", error);
     }
   };
 
@@ -166,26 +171,56 @@ export default function RepairDetailPage() {
       message: 'ต้องการบันทึกการเปลี่ยนแปลงข้อมูลงานซ่อมนี้หรือไม่?',
       onConfirm: async () => {
         try {
-          const res = await fetch("/api/repairs", {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              id: repair.id,
-              ...formData,
-            }),
-          });
-
-          const data = await res.json();
-
-          if (data.success) {
-            setShowSuccessModal(true);
-          } else {
-            setAlertModal({
-              isOpen: true,
-              title: 'เกิดข้อผิดพลาด',
-              message: data.error,
-              type: 'error'
+          // ถ้าสถานะเป็น COMPLETED และมีรูปภาพปิดงาน ให้ใช้ API complete
+          if (formData.status === REPAIR_STATUS.COMPLETED && formData.completionImages && formData.completionImages.length > 0) {
+            const completeRes = await fetch("/api/repairs/complete", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                id: repair.id,
+                status: REPAIR_STATUS.COMPLETED,
+                actualCost: formData.actualCost,
+                completedDate: formData.dueDate || new Date().toISOString(),
+                notes: formData.notes,
+                afterImages: formData.completionImages
+              }),
             });
+
+            const completeData = await completeRes.json();
+
+            if (completeData.success) {
+              setShowSuccessModal(true);
+            } else {
+              setAlertModal({
+                isOpen: true,
+                title: 'เกิดข้อผิดพลาด',
+                message: completeData.message || 'ไม่สามารถปิดงานได้',
+                type: 'error'
+              });
+            }
+          } else {
+            // สำหรับการอัปเดตปกติ
+            const res = await fetch("/api/repairs", {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                id: repair.id,
+                ...formData,
+              }),
+            });
+
+            const data = await res.json();
+
+            if (data.success) {
+              setShowSuccessModal(true);
+            } else {
+              setAlertModal({
+                isOpen: true,
+                title: 'เกิดข้อผิดพลาด',
+                message: data.error,
+                type: 'error'
+              });
+            }
           }
         } catch (error) {
           console.error("Error updating repair:", error);
@@ -209,6 +244,137 @@ export default function RepairDetailPage() {
       longitude: lng,
     }));
     setShowMapPicker(false);
+  };
+
+  const handleCompleteRepair = async () => {
+    // ตรวจสอบว่าต้องมีรูปภาพปิดงาน
+    if (!formData.completionImages || formData.completionImages.length === 0) {
+      setAlertModal({
+        isOpen: true,
+        title: 'ไม่สามารถปิดงานได้',
+        message: 'กรุณาอัปโหลดรูปภาพปิดงานก่อน',
+        type: 'warning'
+      });
+      return;
+    }
+
+    try {
+      // Upload images first (like technician page)
+      const uploadedImageUrls = [];
+      for (const imageData of formData.completionImages) {
+        if (imageData.file) {
+          // Upload file object
+          const formData = new FormData();
+          formData.append('file', imageData.file);
+          
+          const uploadRes = await fetch('/api/upload', {
+            method: 'POST',
+            body: formData
+          });
+          
+          const uploadData = await uploadRes.json();
+          if (uploadData.success) {
+            uploadedImageUrls.push(uploadData.url);
+          }
+        } else if (typeof imageData === 'string') {
+          // Already uploaded URL
+          uploadedImageUrls.push(imageData);
+        }
+      }
+
+      // Get current user info
+      let assignedTo = repair.assignedTo;
+      let notes = repair.assignedTo ? 'ปิดงานโดย Admin' : 'ปิดงานโดย User ที่ Login';
+      
+      // If no technician assigned, assign current user
+      if (!repair.assignedTo) {
+        try {
+          const userStr = localStorage.getItem('user');
+          if (userStr) {
+            const currentUser = JSON.parse(userStr);
+            assignedTo = currentUser.fullName || currentUser.username || currentUser.name;
+            notes = `ปิดงานโดย ${assignedTo}`;
+          }
+        } catch (error) {
+          console.error('Error getting current user:', error);
+        }
+      }
+
+      const response = await fetch(`/api/repairs/complete`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: repair.id,
+          status: REPAIR_STATUS.COMPLETED,
+          completedDate: new Date().toISOString(),
+          notes: notes,
+          assignedTo: assignedTo,
+          afterImages: uploadedImageUrls
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setShowSuccessModal(true);
+        // Refresh repair data
+        fetchRepairDetail();
+      } else {
+        setAlertModal({
+          isOpen: true,
+          title: 'เกิดข้อผิดพลาด',
+          message: data.message || 'ไม่สามารถปิดงานได้',
+          type: 'error'
+        });
+      }
+    } catch (error) {
+      console.error('Error completing repair:', error);
+      setAlertModal({
+        isOpen: true,
+        title: 'เกิดข้อผิดพลาด',
+        message: 'ไม่สามารถปิดงานได้ กรุณาลองใหม่อีกครั้ง',
+        type: 'error'
+      });
+    }
+  };
+
+  const removeCompletionImage = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      completionImages: prev.completionImages.filter((_, i) => i !== index)
+    }));
+  };
+
+  const capturePhoto = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.capture = 'environment'; // Use back camera on mobile
+    input.onchange = (e) => {
+      const files = Array.from(e.target.files);
+      const imagePromises = files.map(file => {
+        return new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            resolve({
+              file: file,
+              preview: e.target.result
+            });
+          };
+          reader.readAsDataURL(file);
+        });
+      });
+
+      Promise.all(imagePromises).then(images => {
+        setFormData(prev => ({
+          ...prev,
+          completionImages: [...(prev.completionImages || []), ...images]
+        }));
+      });
+    };
+    input.click();
   };
 
   const getStatusColor = (status) => {
@@ -540,35 +706,197 @@ export default function RepairDetailPage() {
           {/* Images */}
           {repair.images && repair.images.length > 0 && (
             <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
-              <h2 className="text-lg font-semibold mb-4">รูปภาพปัญหา</h2>
+              <h2 className="text-lg font-semibold mb-4">รูปภาพงานซ่อม</h2>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {repair.images.map((image, index) => (
-                  <div 
-                    key={index} 
-                    className="relative group cursor-pointer"
-                    onClick={() => {
-                      console.log('Div clicked:', image);
-                      setSelectedImage(image);
-                      setShowImageModal(true);
-                    }}
-                  >
-                    <img
-                      src={image}
-                      alt={`รูปภาพปัญหา ${index + 1}`}
-                      className="w-full h-48 object-cover rounded-lg border border-gray-200 hover:opacity-90 transition-opacity"
-                      style={{ pointerEvents: 'none' }}
-                    />
-                    <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 rounded-lg flex items-center justify-center">
-                      <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                        <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
-                        </svg>
+              {/* Original Report Images */}
+              {repair.reportImages && repair.reportImages.length > 0 && (
+                <div className="mb-6">
+                  <h3 className="text-md font-medium text-gray-700 mb-3">รูปภาพปัญหา (ก่อนซ่อม)</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {repair.reportImages.map((image, index) => (
+                      <div 
+                        key={`report-${index}`} 
+                        className="relative group cursor-pointer"
+                        onClick={() => {
+                          setSelectedImage(image);
+                          setShowImageModal(true);
+                        }}
+                      >
+                        <img
+                          src={image}
+                          alt={`รูปภาพปัญหา ${index + 1}`}
+                          className="w-full h-48 object-cover rounded-lg border border-gray-200 hover:opacity-90 transition-opacity"
+                          style={{ pointerEvents: 'none' }}
+                        />
+                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 rounded-lg flex items-center justify-center">
+                          <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                            <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+                            </svg>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {/* Completion Images */}
+              {repair.completionImages && repair.completionImages.length > 0 && (
+                <div className="mb-6">
+                  <h3 className="text-md font-medium text-gray-700 mb-3">รูปภาพหลังซ่อม</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {repair.completionImages.map((image, index) => (
+                      <div 
+                        key={`completion-${index}`} 
+                        className="relative group cursor-pointer"
+                        onClick={() => {
+                          setSelectedImage(image);
+                          setShowImageModal(true);
+                        }}
+                      >
+                        <img
+                          src={image}
+                          alt={`รูปภาพหลังซ่อม ${index + 1}`}
+                          className="w-full h-48 object-cover rounded-lg border border-green-200 hover:opacity-90 transition-opacity"
+                          style={{ pointerEvents: 'none' }}
+                        />
+                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 rounded-lg flex items-center justify-center">
+                          <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                            <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+                            </svg>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Upload Completion Images - View Mode */}
+              {repair.status !== REPAIR_STATUS.COMPLETED && repair.status !== REPAIR_STATUS.CANCELLED && (
+                <div className="mb-6">
+                  <h3 className="text-md font-medium text-gray-700 mb-3">อัปโหลดรูปภาพปิดงาน</h3>
+                  
+                  {/* Upload Button */}
+                  <div className="mb-4">
+                    <button
+                      onClick={capturePhoto}
+                      className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 cursor-pointer transition-colors"
+                    >
+                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                      ถ่ายรูปปิดงาน
+                    </button>
+                  </div>
+
+                  {/* Image Preview */}
+                  {formData.completionImages && formData.completionImages.length > 0 && (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                      {formData.completionImages.map((img, index) => (
+                        <div key={index} className="relative group">
+                          <img
+                            src={img.preview || img}
+                            alt={`รูปภาพปิดงาน ${index + 1}`}
+                            className="w-full h-32 object-cover rounded-lg border-2 border-green-200"
+                          />
+                          <button
+                            onClick={() => removeCompletionImage(index)}
+                            className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  
+                  <p className="text-sm text-gray-500 mt-2">
+                    {formData.completionImages && formData.completionImages.length > 0 
+                      ? `เลือกแล้ว ${formData.completionImages.length} รูป` 
+                      : 'กรุณาถ่ายรูปปิดงานอย่างน้อย 1 รูป'}
+                  </p>
+                </div>
+              )}
+
+              {/* Upload Completion Images - Edit Mode */}
+              {isEditing && formData.status === REPAIR_STATUS.COMPLETED && (
+                <div className="mb-6">
+                  <h3 className="text-md font-medium text-gray-700 mb-3">อัปโหลดรูปภาพปิดงาน</h3>
+                  
+                  {/* Upload Button */}
+                  <div className="mb-4">
+                    <button
+                      onClick={capturePhoto}
+                      className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 cursor-pointer transition-colors"
+                    >
+                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                      เลือกรูปภาพ
+                    </button>
+                  </div>
+
+                  {/* Preview Uploaded Images */}
+                  {formData.completionImages && formData.completionImages.length > 0 && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {formData.completionImages.map((image, index) => (
+                        <div key={`upload-${index}`} className="relative">
+                          <img
+                            src={image}
+                            alt={`รูปภาพปิดงาน ${index + 1}`}
+                            className="w-full h-48 object-cover rounded-lg border border-green-200"
+                          />
+                          <button
+                            onClick={() => removeCompletionImage(index)}
+                            className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              {/* Fallback for old format (all images in one array) */}
+              {(!repair.reportImages || repair.reportImages.length === 0) && 
+               (!repair.completionImages || repair.completionImages.length === 0) && 
+               repair.images && repair.images.length > 0 && (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {repair.images.map((image, index) => (
+                    <div 
+                      key={index} 
+                      className="relative group cursor-pointer"
+                      onClick={() => {
+                        setSelectedImage(image);
+                        setShowImageModal(true);
+                      }}
+                    >
+                      <img
+                        src={image}
+                        alt={`รูปภาพงานซ่อม ${index + 1}`}
+                        className="w-full h-48 object-cover rounded-lg border border-gray-200 hover:opacity-90 transition-opacity"
+                        style={{ pointerEvents: 'none' }}
+                      />
+                      <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 rounded-lg flex items-center justify-center">
+                        <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                          <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+                          </svg>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
               
               <p className="text-sm text-gray-500 mt-3">
                 คลิกที่รูปภาพเพื่อดูขนาดเต็ม
@@ -736,6 +1064,26 @@ export default function RepairDetailPage() {
           >
             ยกเลิก
           </button>
+          {repair.status !== REPAIR_STATUS.COMPLETED && repair.status !== REPAIR_STATUS.CANCELLED && (
+            <button
+              onClick={() => setConfirmModal({
+                isOpen: true,
+                message: `คุณต้องการปิดงานซ่อม "${repair.title}" หรือไม่?${(!formData.completionImages || formData.completionImages.length === 0) ? '\n\n⚠️ กรุณาอัปโหลดรูปภาพปิดงานก่อน' : ''}`,
+                onConfirm: () => handleCompleteRepair()
+              })}
+              className={`px-6 py-3 rounded-lg transition-colors font-medium flex items-center gap-2 ${
+                (!formData.completionImages || formData.completionImages.length === 0)
+                  ? 'bg-gray-400 text-white cursor-not-allowed' 
+                  : 'bg-blue-600 text-white hover:bg-blue-700'
+              }`}
+              disabled={!formData.completionImages || formData.completionImages.length === 0}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              ปิดงาน
+            </button>
+          )}
           <button
             onClick={handleSubmit}
             className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
