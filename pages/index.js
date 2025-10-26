@@ -11,6 +11,11 @@ export default function Home() {
     pendingRepairs: 0,
     completedRepairs: 0
   });
+  const [chartData, setChartData] = useState({
+    reportsByStatus: {},
+    assetsByCategory: {},
+    reportsByVillage: []
+  });
   const [isPublic, setIsPublic] = useState(false);
 
   useEffect(() => {
@@ -21,18 +26,24 @@ export default function Home() {
 
   const fetchStats = async () => {
     try {
-      // TODO: Implement API calls to get statistics
-      // const response = await fetch('/api/dashboard');
-      // const data = await response.json();
-      // setStats(data);
+      const response = await fetch('/api/dashboard');
+      const data = await response.json();
       
-      // Mock data
-      setStats({
-        totalAssets: 125,
-        totalReports: 45,
-        pendingRepairs: 12,
-        completedRepairs: 33
-      });
+      if (data.success) {
+        setStats({
+          totalAssets: data.data.totalAssets,
+          totalReports: data.data.totalReports,
+          pendingRepairs: data.data.pendingRepairs,
+          completedRepairs: data.data.completedRepairs
+        });
+        setChartData({
+          reportsByStatus: data.data.reportsByStatus || {},
+          assetsByCategory: data.data.assetsByCategory || {},
+          reportsByVillage: data.data.reportsByVillage || []
+        });
+      } else {
+        console.error('API Error:', data.error);
+      }
     } catch (error) {
       console.error('Error fetching stats:', error);
     }
@@ -259,135 +270,103 @@ export default function Home() {
 
       {/* Main Grid - TailAdmin Style */}
       <div className="grid grid-cols-12 gap-4 md:gap-6">
-        {/* Left Column - Chart */}
-        <div className="col-span-12 xl:col-span-7">
-          <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6">
+        {/* Chart Half Width */}
+        <div className="col-span-12 xl:col-span-6 flex">
+          <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6 w-full flex flex-col">
             <div className="mb-6">
-              <h2 className="text-base font-bold text-gray-800 dark:text-white/90 mb-1">สถิติการใช้งาน</h2>
+              <h2 className="text-base font-bold text-gray-800 dark:text-white/90 mb-1">สถิติการเกิดปัญหา</h2>
               <p className="text-sm text-gray-500 dark:text-gray-400">ภาพรวมการดำเนินงาน 6 เดือนล่าสุด</p>
             </div>
             <DashboardChart />
           </div>
         </div>
 
-        {/* Right Column - Recent Activities */}
-        <div className="col-span-12 xl:col-span-5">
+        {/* Reports by Village - Half Width */}
+        <div className="col-span-12 xl:col-span-6">
+          <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6 h-full flex flex-col">
+            <h4 className="text-base font-bold text-gray-800 dark:text-white/90 mb-4">ปัญหาตามหมู่บ้าน</h4>
+            <div className="space-y-3 flex-1 overflow-y-auto">
+              {chartData.reportsByVillage.length === 0 ? (
+                <p className="text-sm text-gray-500 text-center py-4">ไม่มีข้อมูล</p>
+              ) : (
+                chartData.reportsByVillage.map((item) => {
+                  const maxCount = Math.max(...chartData.reportsByVillage.map(v => v.count), 1);
+                  return (
+                    <div key={item.village}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-sm text-gray-600 dark:text-gray-400">{item.village}</span>
+                        <span className="text-sm font-bold text-gray-800 dark:text-white/90">{item.count}</span>
+                      </div>
+                      <div className="w-full bg-gray-100 dark:bg-gray-800 rounded-full h-2 overflow-hidden">
+                        <div 
+                          className="bg-gradient-to-r from-purple-500 to-pink-500 h-2 rounded-full transition-all" 
+                          style={{ width: `${Math.min((item.count / maxCount) * 100, 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Additional Stats Cards */}
+        <div className="col-span-12 grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+          {/* Reports by Status Card */}
           <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6">
-            <h2 className="text-base font-bold text-gray-800 dark:text-white/90 mb-5">กิจกรรมล่าสุด</h2>
-            
+            <h4 className="text-base font-bold text-gray-800 dark:text-white/90 mb-4">รายงานตามสถานะ</h4>
             <div className="space-y-3">
-              {/* Activity 1 */}
-              <div className="flex items-start gap-3 pb-3 border-b border-gray-100 dark:border-gray-800">
-                <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center">
-                  <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                  </svg>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 dark:text-white/90">รายงานปัญหาใหม่</p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">เสาไฟหมู่ 1 ไฟไม่ติด</p>
-                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">5 นาทีที่แล้ว</p>
-                </div>
-              </div>
-
-              {/* Activity 2 */}
-              <div className="flex items-start gap-3 pb-3 border-b border-gray-100 dark:border-gray-800">
-                <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-green-50 dark:bg-green-900/20 flex items-center justify-center">
-                  <svg className="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 dark:text-white/90">งานซ่อมเสร็จสิ้น</p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">เสาไฟหมู่ 3</p>
-                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">1 ชั่วโมงที่แล้ว</p>
-                </div>
-              </div>
-
-              {/* Activity 3 */}
-              <div className="flex items-start gap-3 pb-3 border-b border-gray-100 dark:border-gray-800">
-                <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-orange-50 dark:bg-orange-900/20 flex items-center justify-center">
-                  <svg className="w-5 h-5 text-orange-600 dark:text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 dark:text-white/90">เพิ่มทรัพย์สินใหม่</p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">เสาไฟ LED หมู่ 5</p>
-                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">3 ชั่วโมงที่แล้ว</p>
-                </div>
-              </div>
-
-              {/* Activity 4 */}
-              <div className="flex items-start gap-3">
-                <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-purple-50 dark:bg-purple-900/20 flex items-center justify-center">
-                  <svg className="w-5 h-5 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 dark:text-white/90">ผู้ใช้ใหม่เข้าระบบ</p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">ช่าง สมชาย ใจดี</p>
-                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">5 ชั่วโมงที่แล้ว</p>
-                </div>
-              </div>
+              {Object.keys(chartData.reportsByStatus).length === 0 ? (
+                <p className="text-sm text-gray-500 text-center py-4">ไม่มีข้อมูล</p>
+              ) : (
+                Object.entries(chartData.reportsByStatus).map(([status, count]) => {
+                  const maxCount = Math.max(...Object.values(chartData.reportsByStatus), 1);
+                  return (
+                    <div key={status}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-sm text-gray-600 dark:text-gray-400">{status}</span>
+                        <span className="text-sm font-bold text-gray-800 dark:text-white/90">{count}</span>
+                      </div>
+                      <div className="w-full bg-gray-100 dark:bg-gray-800 rounded-full h-2 overflow-hidden">
+                        <div 
+                          className="bg-gradient-to-r from-blue-500 to-indigo-500 h-2 rounded-full transition-all" 
+                          style={{ width: `${Math.min((count / maxCount) * 100, 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })
+              )}
             </div>
-
-            <button className="w-full mt-6 px-4 py-2.5 bg-gray-50 hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 transition-colors">
-              ดูกิจกรรมทั้งหมด
-            </button>
           </div>
-        </div>
 
-        {/* System Status Widget */}
-        <div className="col-span-12 xl:col-span-5">
+          {/* Assets by Category Card */}
           <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6">
-            <h3 className="text-base font-bold text-gray-800 dark:text-white/90 mb-5">สถานะระบบ</h3>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-gray-800">
-                <span className="text-sm text-gray-600 dark:text-gray-400">ระบบฐานข้อมูล</span>
-                <span className="flex items-center gap-2 text-sm font-medium text-green-600 dark:text-green-400">
-                  <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                  ทำงานปกติ
-                </span>
-              </div>
-              <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-gray-800">
-                <span className="text-sm text-gray-600 dark:text-gray-400">API Services</span>
-                <span className="flex items-center gap-2 text-sm font-medium text-green-600 dark:text-green-400">
-                  <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                  ทำงานปกติ
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600 dark:text-gray-400">พื้นที่จัดเก็บ</span>
-                <span className="text-sm font-medium text-gray-900 dark:text-white/90">68% available</span>
-              </div>
+            <h4 className="text-base font-bold text-gray-800 dark:text-white/90 mb-4">ทรัพย์สินตามหมวดหมู่</h4>
+            <div className="space-y-3">
+              {Object.keys(chartData.assetsByCategory).length === 0 ? (
+                <p className="text-sm text-gray-500 text-center py-4">ไม่มีข้อมูล</p>
+              ) : (
+                Object.entries(chartData.assetsByCategory).map(([category, count]) => {
+                  const maxCount = Math.max(...Object.values(chartData.assetsByCategory), 1);
+                  return (
+                    <div key={category}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-sm text-gray-600 dark:text-gray-400">{category}</span>
+                        <span className="text-sm font-bold text-gray-800 dark:text-white/90">{count}</span>
+                      </div>
+                      <div className="w-full bg-gray-100 dark:bg-gray-800 rounded-full h-2 overflow-hidden">
+                        <div 
+                          className="bg-gradient-to-r from-green-500 to-emerald-500 h-2 rounded-full transition-all" 
+                          style={{ width: `${Math.min((count / maxCount) * 100, 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })
+              )}
             </div>
-          </div>
-        </div>
-
-        {/* Quick Actions Cards */}
-        <div className="col-span-12 xl:col-span-7">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
-            <Link href="/assets" className="rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 p-6 text-white hover:shadow-xl transition-all duration-300 group">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-lg font-bold">จัดการทรัพย์สิน</h3>
-                <svg className="w-5 h-5 transform group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                </svg>
-              </div>
-              <p className="text-blue-100 text-sm">เพิ่ม แก้ไข และจัดการทรัพย์สิน</p>
-            </Link>
-
-            <Link href="/reports" className="rounded-2xl bg-gradient-to-br from-purple-500 to-purple-600 p-6 text-white hover:shadow-xl transition-all duration-300 group">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-lg font-bold">ดูรายงาน</h3>
-                <svg className="w-5 h-5 transform group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                </svg>
-              </div>
-              <p className="text-purple-100 text-sm">ตรวจสอบรายงานปัญหาทั้งหมด</p>
-            </Link>
           </div>
         </div>
       </div>
