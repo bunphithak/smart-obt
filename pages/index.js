@@ -183,12 +183,6 @@ export default function Home() {
                 {stats.totalAssets}
               </h4>
             </div>
-            <div className="flex items-center gap-1 px-2 py-1 bg-green-50 dark:bg-green-900/20 rounded-full">
-              <svg className="w-3 h-3 text-green-600 dark:text-green-400" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 7.414V15a1 1 0 11-2 0V7.414L6.707 9.707a1 1 0 01-1.414 0z" clipRule="evenodd" />
-              </svg>
-              <span className="text-xs font-semibold text-green-600 dark:text-green-400">12.5%</span>
-            </div>
           </div>
         </div>
         
@@ -207,12 +201,6 @@ export default function Home() {
               <h4 className="mt-2 font-bold text-gray-800 text-2xl dark:text-white/90">
                 {stats.totalReports}
               </h4>
-            </div>
-            <div className="flex items-center gap-1 px-2 py-1 bg-green-50 dark:bg-green-900/20 rounded-full">
-              <svg className="w-3 h-3 text-green-600 dark:text-green-400" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 7.414V15a1 1 0 11-2 0V7.414L6.707 9.707a1 1 0 01-1.414 0z" clipRule="evenodd" />
-              </svg>
-              <span className="text-xs font-semibold text-green-600 dark:text-green-400">8.2%</span>
             </div>
           </div>
         </div>
@@ -233,12 +221,6 @@ export default function Home() {
                 {stats.pendingRepairs}
               </h4>
             </div>
-            <div className="flex items-center gap-1 px-2 py-1 bg-red-50 dark:bg-red-900/20 rounded-full">
-              <svg className="w-3 h-3 text-red-600 dark:text-red-400" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M14.707 10.293a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L9 12.586V5a1 1 0 012 0v7.586l2.293-2.293a1 1 0 011.414 0z" clipRule="evenodd" />
-              </svg>
-              <span className="text-xs font-semibold text-red-600 dark:text-red-400">-3.1%</span>
-            </div>
           </div>
         </div>
         
@@ -257,12 +239,6 @@ export default function Home() {
               <h4 className="mt-2 font-bold text-gray-800 text-2xl dark:text-white/90">
                 {stats.completedRepairs}
               </h4>
-            </div>
-            <div className="flex items-center gap-1 px-2 py-1 bg-green-50 dark:bg-green-900/20 rounded-full">
-              <svg className="w-3 h-3 text-green-600 dark:text-green-400" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 7.414V15a1 1 0 11-2 0V7.414L6.707 9.707a1 1 0 01-1.414 0z" clipRule="evenodd" />
-              </svg>
-              <span className="text-xs font-semibold text-green-600 dark:text-green-400">21.7%</span>
             </div>
           </div>
         </div>

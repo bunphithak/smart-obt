@@ -261,26 +261,37 @@ export default function RepairDetailPage() {
     try {
       // Upload images first (like technician page)
       const uploadedImageUrls = [];
-      for (const imageData of formData.completionImages) {
-        if (imageData.file) {
-          // Upload file object
-          const formData = new FormData();
-          formData.append('file', imageData.file);
-          
-          const uploadRes = await fetch('/api/upload', {
-            method: 'POST',
-            body: formData
-          });
-          
-          const uploadData = await uploadRes.json();
-          if (uploadData.success) {
+      
+      // Collect file objects for upload
+      const fileObjects = formData.completionImages.filter(img => img.file);
+      const existingUrls = formData.completionImages
+        .filter(img => typeof img === 'string' || (typeof img === 'object' && !img.file))
+        .map(img => typeof img === 'string' ? img : img);
+      
+      // Upload all file objects at once
+      if (fileObjects.length > 0) {
+        const uploadFormData = new FormData();
+        fileObjects.forEach(imageData => {
+          uploadFormData.append('file', imageData.file);
+        });
+        
+        const uploadRes = await fetch('/api/upload', {
+          method: 'POST',
+          body: uploadFormData
+        });
+        
+        const uploadData = await uploadRes.json();
+        if (uploadData.success) {
+          if (Array.isArray(uploadData.urls)) {
+            uploadedImageUrls.push(...uploadData.urls);
+          } else if (uploadData.url) {
             uploadedImageUrls.push(uploadData.url);
           }
-        } else if (typeof imageData === 'string') {
-          // Already uploaded URL
-          uploadedImageUrls.push(imageData);
         }
       }
+      
+      // Add existing URLs
+      uploadedImageUrls.push(...existingUrls);
 
       // Get current user info
       let assignedTo = repair.assignedTo;

@@ -214,17 +214,24 @@ export default function TechnicianRepairDetail() {
     try {
       // Upload images first
       const uploadedImageUrls = [];
+      
+      // Collect all images in a single FormData
+      const uploadFormData = new FormData();
       for (const imageData of updateForm.afterImages) {
-        const formData = new FormData();
-        formData.append('file', imageData.file);
-        
-        const uploadRes = await fetch('/api/upload', {
-          method: 'POST',
-          body: formData
-        });
-        
-        const uploadData = await uploadRes.json();
-        if (uploadData.success) {
+        uploadFormData.append('file', imageData.file);
+      }
+      
+      // Upload all images at once
+      const uploadRes = await fetch('/api/upload', {
+        method: 'POST',
+        body: uploadFormData
+      });
+      
+      const uploadData = await uploadRes.json();
+      if (uploadData.success) {
+        if (Array.isArray(uploadData.urls)) {
+          uploadedImageUrls.push(...uploadData.urls);
+        } else if (uploadData.url) {
           uploadedImageUrls.push(uploadData.url);
         }
       }

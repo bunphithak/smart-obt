@@ -74,37 +74,38 @@ export default async function handler(req, res) {
       afterImages: afterImages ? afterImages.length : 0
     });
 
-    // Get original report images to merge with completion images
+    // Store completion images separately
+    let completionImagesArray = [];
+    
+    if (afterImages && Array.isArray(afterImages)) {
+      completionImagesArray = [...afterImages];
+    }
+
+    // Get existing repair images to preserve them
     const repairData = await pool.query(`
-      SELECT r.images as repair_images, rep.images as report_images
+      SELECT r.images as repair_images
       FROM repairs r
-      LEFT JOIN reports rep ON r.report_id = rep.id
       WHERE r.id = $1
     `, [id]);
 
     let mergedImages = [];
     
-    if (repairData.rows.length > 0) {
-      const row = repairData.rows[0];
-      
-      // Get original report images
-      if (row.report_images) {
-        try {
-          const reportImages = typeof row.report_images === 'string' 
-            ? JSON.parse(row.report_images) 
-            : row.report_images;
-          if (Array.isArray(reportImages)) {
-            mergedImages = [...reportImages];
-          }
-        } catch (e) {
-          console.error('Error parsing report images:', e);
+    if (repairData.rows.length > 0 && repairData.rows[0].repair_images) {
+      try {
+        const existingImages = typeof repairData.rows[0].repair_images === 'string' 
+          ? JSON.parse(repairData.rows[0].repair_images) 
+          : repairData.rows[0].repair_images;
+        if (Array.isArray(existingImages)) {
+          mergedImages = [...existingImages];
         }
+      } catch (e) {
+        console.error('Error parsing existing repair images:', e);
       }
-      
-      // Add completion images
-      if (afterImages && Array.isArray(afterImages)) {
-        mergedImages = [...mergedImages, ...afterImages];
-      }
+    }
+    
+    // Add new completion images to the array
+    if (completionImagesArray.length > 0) {
+      mergedImages = [...mergedImages, ...completionImagesArray];
     }
 
     // Update repair record
