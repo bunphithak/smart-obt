@@ -4,7 +4,6 @@ import NextImage from 'next/image';
 import ConfirmModal from '../../components/ConfirmModal';
 import AlertModal from '../../components/AlertModal';
 import { ASSET_STATUS, ASSET_STATUS_LABELS, getAssetStatusColor } from '../../lib/constants';
-// import dynamic from 'next/dynamic';
 
 // Disable SSR for this page to avoid QR code library issues
 export default function AssetsPage() {
@@ -25,7 +24,6 @@ export default function AssetsPage() {
   const [showVillageSelectModal, setShowVillageSelectModal] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(12); // แสดง 12 รายการต่อหน้า
-  // const [selectedVillage, setSelectedVillage] = useState(null);
   
   // Modal states
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -833,7 +831,7 @@ export default function AssetsPage() {
 
   const filteredAssets = assets.filter(asset => {
     if (filter.category && asset.category !== filter.category) return false;
-    if (filter.villageId && asset.villageId !== parseInt(filter.villageId)) return false;
+    if (filter.villageId && String(asset.villageId) !== String(filter.villageId)) return false;
     if (filter.search) {
       const searchLower = filter.search.toLowerCase();
       return (
@@ -1471,6 +1469,7 @@ export default function AssetsPage() {
         message={alertData.message}
         type={alertData.type}
       />
+
     </div>
   );
 }

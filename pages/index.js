@@ -299,7 +299,7 @@ export default function Home() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-900 dark:text-white/90">งานซ่อมเสร็จสิ้น</p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">ซ่อมท่อน้ำหมู่ 3</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">เสาไฟหมู่ 3</p>
                   <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">1 ชั่วโมงที่แล้ว</p>
                 </div>
               </div>

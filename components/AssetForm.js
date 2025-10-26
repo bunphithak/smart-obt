@@ -1,9 +1,6 @@
 import { useState, useEffect } from 'react';
 import { ASSET_STATUS, ASSET_STATUS_LABELS } from '../lib/constants';
-import dynamic from 'next/dynamic';
-
-// Import Map component with SSR disabled
-const MapPicker = dynamic(() => import('./MapPicker'), { ssr: false });
+import MapModal from './MapModal';
 
 export default function AssetForm({ asset, villages, categories = [], onSubmit, onCancel }) {
   const [formData, setFormData] = useState({
@@ -21,6 +18,7 @@ export default function AssetForm({ asset, villages, categories = [], onSubmit, 
     longitude: null
   });
   const [showMap, setShowMap] = useState(false);
+  const [generatingCode, setGeneratingCode] = useState(false);
 
   useEffect(() => {
     if (asset) {
@@ -41,6 +39,34 @@ export default function AssetForm({ asset, villages, categories = [], onSubmit, 
       ...prev,
       [name]: value
     }));
+
+    // Auto-generate code when category is selected (only for new assets)
+    if (name === 'category' && value && !asset) {
+      generateAssetCode(value);
+    }
+  };
+
+  const generateAssetCode = async (categoryId) => {
+    if (!categoryId) return;
+    
+    setGeneratingCode(true);
+    try {
+      const res = await fetch(`/api/assets/generate-code?categoryId=${categoryId}`);
+      const data = await res.json();
+      
+      if (data.success) {
+        setFormData(prev => ({
+          ...prev,
+          code: data.data.code
+        }));
+      } else {
+        console.error('Error generating code:', data.error);
+      }
+    } catch (error) {
+      console.error('Error generating asset code:', error);
+    } finally {
+      setGeneratingCode(false);
+    }
   };
 
   const handleLocationSelect = (lat, lng, address) => {
@@ -55,7 +81,12 @@ export default function AssetForm({ asset, villages, categories = [], onSubmit, 
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSubmit(formData);
+    // Transform category to categoryId for API
+    const submitData = {
+      ...formData,
+      categoryId: formData.category
+    };
+    onSubmit(submitData);
   };
 
   return (
@@ -77,6 +108,26 @@ export default function AssetForm({ asset, villages, categories = [], onSubmit, 
 
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
+          หมวดหมู่ <span className="text-red-500">*</span>
+        </label>
+        <select
+          name="category"
+          value={formData.category}
+          onChange={handleChange}
+          required
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="">เลือกหมวดหมู่</option>
+          {categories.filter(cat => cat.isActive).map(category => (
+            <option key={category.id} value={category.id}>
+              {category.name}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
           รหัสทรัพย์สิน <span className="text-red-500">*</span>
         </label>
         <input
@@ -85,30 +136,11 @@ export default function AssetForm({ asset, villages, categories = [], onSubmit, 
           value={formData.code}
           onChange={handleChange}
           required
-          disabled={!!asset}
+          disabled={true}
           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
-          placeholder="เช่น AST-001"
+          placeholder={generatingCode ? "กำลังสร้างรหัส..." : "เลือกหมวดหมู่เพื่อสร้างรหัส LED-YYMMDD000001"}
         />
       </div>
-
-             <div>
-               <label className="block text-sm font-medium text-gray-700 mb-1">
-                 หมวดหมู่
-               </label>
-               <select
-                 name="category"
-                 value={formData.category}
-                 onChange={handleChange}
-                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-               >
-                 <option value="">เลือกหมวดหมู่</option>
-             {categories.filter(cat => cat.isActive).map(category => (
-               <option key={category.id} value={category.name}>
-                 {category.name}
-               </option>
-             ))}
-               </select>
-             </div>
 
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -258,30 +290,14 @@ export default function AssetForm({ asset, villages, categories = [], onSubmit, 
       </div>
 
       {/* Map Modal */}
-      {showMap && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
-            <div className="p-4 border-b border-gray-200 flex justify-between items-center">
-              <h3 className="text-lg font-semibold text-gray-900">เลือกตำแหน่งบนแผนที่</h3>
-              <button
-                onClick={() => setShowMap(false)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <div className="p-4">
-              <MapPicker
-                initialLat={formData.latitude || 13.7563}
-                initialLng={formData.longitude || 100.5018}
-                onLocationSelect={handleLocationSelect}
-              />
-            </div>
-          </div>
-        </div>
-      )}
+      <MapModal
+        isOpen={showMap}
+        onClose={() => setShowMap(false)}
+        initialLat={formData.latitude}
+        initialLng={formData.longitude}
+        initialAddress={formData.locationAddress}
+        onConfirm={handleLocationSelect}
+      />
     </form>
   );
 }

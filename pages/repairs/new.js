@@ -1,13 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
-import dynamic from 'next/dynamic';
 import { REPAIR_STATUS, PRIORITY, PRIORITY_LABELS } from '../../lib/constants';
-
-// Dynamic import for MapPicker (client-side only)
-const MapPicker = dynamic(() => import("../../components/MapPicker"), {
-  ssr: false,
-});
+import MapModal from '../../components/MapModal';
 
 export default function NewRepairPage() {
   const router = useRouter();
@@ -664,30 +659,14 @@ export default function NewRepairPage() {
         )}
 
         {/* Map Modal */}
-        {showMap && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
-              <div className="p-4 border-b border-gray-200 flex justify-between items-center">
-                <h3 className="text-lg font-semibold text-gray-900">เลือกตำแหน่งบนแผนที่</h3>
-                <button
-                  onClick={() => setShowMap(false)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-              <div className="p-4">
-                <MapPicker
-                  initialLat={formData.latitude || 13.7563}
-                  initialLng={formData.longitude || 100.5018}
-                  onLocationSelect={handleLocationSelect}
-                />
-              </div>
-            </div>
-          </div>
-        )}
+        <MapModal
+          isOpen={showMap}
+          onClose={() => setShowMap(false)}
+          initialLat={formData.latitude}
+          initialLng={formData.longitude}
+          initialAddress={formData.locationAddress}
+          onConfirm={handleLocationSelect}
+        />
       </>
     );
   }

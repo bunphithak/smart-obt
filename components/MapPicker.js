@@ -12,16 +12,18 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
-function LocationMarker({ position, setPosition, onPositionChange }) {
+function LocationMarker({ position, setPosition, onPositionChange, readonly = false }) {
   const markerRef = useRef(null);
   
   useMapEvents({
     click(e) {
-      const newPos = [e.latlng.lat, e.latlng.lng];
-      setPosition(newPos);
-      // เรียก callback ทันทีเมื่อคลิกบนแผนที่
-      if (onPositionChange) {
-        onPositionChange(newPos);
+      if (!readonly) {
+        const newPos = [e.latlng.lat, e.latlng.lng];
+        setPosition(newPos);
+        // เรียก callback ทันทีเมื่อคลิกบนแผนที่
+        if (onPositionChange) {
+          onPositionChange(newPos);
+        }
       }
     },
   });
@@ -29,25 +31,27 @@ function LocationMarker({ position, setPosition, onPositionChange }) {
   const eventHandlers = useMemo(
     () => ({
       dragend() {
-        const marker = markerRef.current;
-        if (marker != null) {
-          const newPos = marker.getLatLng();
-          const posArray = [newPos.lat, newPos.lng];
-          setPosition(posArray);
-          // เรียก callback ทันทีเมื่อลากหมุด
-          if (onPositionChange) {
-            onPositionChange(posArray);
+        if (!readonly) {
+          const marker = markerRef.current;
+          if (marker != null) {
+            const newPos = marker.getLatLng();
+            const posArray = [newPos.lat, newPos.lng];
+            setPosition(posArray);
+            // เรียก callback ทันทีเมื่อลากหมุด
+            if (onPositionChange) {
+              onPositionChange(posArray);
+            }
           }
         }
       },
     }),
-    [setPosition, onPositionChange],
+    [setPosition, onPositionChange, readonly],
   );
 
   return position ? (
     <Marker 
       position={position} 
-      draggable={true}
+      draggable={!readonly}
       eventHandlers={eventHandlers}
       ref={markerRef}
     />
@@ -67,7 +71,7 @@ function MapUpdater({ center, zoom }) {
   return null;
 }
 
-export default function MapPicker({ initialLat, initialLng, onLocationSelect }) {
+export default function MapPicker({ initialLat, initialLng, onLocationSelect, readonly = false }) {
   const [position, setPosition] = useState([initialLat || 13.7563, initialLng || 100.5018]);
   const [mounted, setMounted] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -200,21 +204,27 @@ export default function MapPicker({ initialLat, initialLng, onLocationSelect }) 
       </div>
 
       {/* Search Box */}
-      <div className="mb-3 relative">
-        <div className="relative">
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={handleSearchInput}
-            placeholder="🔍 ค้นหาสถานที่... (เช่น ระยอง, กรุงเทพ, สยาม, ม.เกษตร)"
-            className="w-full px-4 py-3 pr-10 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
-          {searching && (
-            <div className="absolute right-3 top-3">
-              <div className="animate-spin w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full"></div>
-            </div>
-          )}
+      <div className="mb-3">
+        <div className="flex gap-2 mb-2">
+          <div className="relative flex-1">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={handleSearchInput}
+              placeholder="🔍 ค้นหาสถานที่... (เช่น ระยอง, กรุงเทพ, สยาม, ม.เกษตร)"
+              className="w-full px-4 py-3 pr-10 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+            {searching && (
+              <div className="absolute right-3 top-3">
+                <div className="animate-spin w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+              </div>
+            )}
+          </div>
+
         </div>
+      </div>
+      
+      <div className="mb-3 relative">
 
         {/* Search Results */}
         {(() => {
@@ -269,24 +279,42 @@ export default function MapPicker({ initialLat, initialLng, onLocationSelect }) 
           <LocationMarker 
             position={position} 
             setPosition={setPosition} 
-            onPositionChange={handlePositionChange}
+            onPositionChange={readonly ? undefined : handlePositionChange}
+            readonly={readonly}
           />
           <MapUpdater center={position} zoom={mapZoom} />
         </MapContainer>
       </div>
 
       <div className="mt-4">
-        <button
-          type="button"
-          onClick={handleCurrentLocation}
-          className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2 transition-colors shadow-md"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-          </svg>
-          ใช้ตำแหน่งปัจจุบัน
-        </button>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              // ใช้ตำแหน่งปัจจุบันจาก marker
+              if (position && position[0] && position[1]) {
+                handlePositionChange(position);
+              }
+            }}
+            className="flex-1 px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center justify-center gap-2 transition-colors shadow-md"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+            ใช้ตำแหน่ง
+          </button>
+          <button
+            type="button"
+            onClick={handleCurrentLocation}
+            className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2 transition-colors shadow-md"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            ใช้ตำแหน่งปัจจุบัน
+          </button>
+        </div>
       </div>
 
       {/* Alert Modal */}

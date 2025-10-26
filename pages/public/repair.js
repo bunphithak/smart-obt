@@ -23,9 +23,12 @@ export default function RepairForm() {
   const [alertData, setAlertData] = useState({ type: 'info', title: '', message: '' });
   const [assetCode, setAssetCode] = useState('');
   const [categories, setCategories] = useState([]);
+  const [problemTypes, setProblemTypes] = useState([]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState('');
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   
   const [formData, setFormData] = useState({
+    categoryId: '',
     problemType: '',
     description: '',
     location: '',
@@ -57,25 +60,46 @@ export default function RepairForm() {
       const data = await res.json();
       if (data.success && data.data.length > 0) {
         setCategories(data.data);
-        // Set default to "ไฟส่องสว่าง" if available
-        const lightCategory = data.data.find(cat => cat.name === 'ไฟส่องสว่าง');
-        if (lightCategory) {
-          setFormData(prev => {
-            // Only set if not already set
-            if (!prev.problemType) {
-              return {
-                ...prev,
-                problemType: lightCategory.name
-              };
-            }
-            return prev;
-          });
-        }
       }
     } catch (fetchError) {
       console.error('Error fetching categories:', fetchError);
     }
   }, []);
+
+  const fetchProblemTypes = useCallback(async (categoryId) => {
+    if (!categoryId) {
+      setProblemTypes([]);
+      return;
+    }
+    try {
+      const res = await fetch('/api/problem-types');
+      const data = await res.json();
+      console.log('📋 Problem Types API Response:', data);
+      if (data.success) {
+        const filtered = data.data.filter(pt => {
+          const categoryMatch = String(pt.categoryId) === String(categoryId);
+          const isActive = pt.isActive !== false;
+          console.log('🎯 Checking:', { ptName: pt.name, ptCategoryId: pt.categoryId, searchCategoryId: categoryId, categoryMatch, isActive, result: categoryMatch && isActive });
+          return categoryMatch && isActive;
+        });
+        console.log('🔍 Filtered Problem Types:', { categoryId, filtered });
+        setProblemTypes(filtered);
+      }
+    } catch (error) {
+      console.error('Error fetching problem types:', error);
+    }
+  }, []);
+
+  const handleCategoryChange = (e) => {
+    const categoryId = e.target.value;
+    setSelectedCategoryId(categoryId);
+    setFormData(prev => ({ 
+      ...prev, 
+      categoryId: categoryId,
+      problemType: '' 
+    }));
+    fetchProblemTypes(categoryId);
+  };
 
   useEffect(() => {
     if (isClient) {
@@ -198,6 +222,7 @@ export default function RepairForm() {
       // Create FormData for file upload
       const formDataToSend = new FormData();
       formDataToSend.append('assetCode', assetCode);
+      formDataToSend.append('categoryId', formData.categoryId);
       formDataToSend.append('problemType', formData.problemType);
       formDataToSend.append('description', formData.description);
       formDataToSend.append('location', formData.location);
@@ -348,42 +373,52 @@ export default function RepairForm() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  ประเภทปัญหา *
+                  หมวดหมู่ทรัพย์สิน <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={selectedCategoryId}
+                  onChange={handleCategoryChange}
+                  required
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                >
+                  <option value="">เลือกหมวดหมู่</option>
+                  {categories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+                {categories.length === 0 && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    กำลังโหลดหมวดหมู่...
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  ประเภทปัญหา <span className="text-red-500">*</span>
                 </label>
                 <select
                   name="problemType"
                   value={formData.problemType}
                   onChange={handleChange}
                   required
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                  disabled={!selectedCategoryId}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
                 >
-                  <option value="">เลือกประเภทปัญหา</option>
-                  {categories.length > 0 ? (
-                    categories.map((category) => (
-                      <option key={category.id} value={category.name}>
-                        {category.name}
-                      </option>
-                    ))
-                  ) : (
-                    <>
-                      <option value="ไฟส่องสว่าง">ไฟส่องสว่าง</option>
-                      <option value="ถนน">ถนนชำรุด</option>
-                      <option value="ไฟฟ้า">ไฟฟ้า</option>
-                      <option value="ประปา">ประปา</option>
-                      <option value="ท่อระบายน้ำ">ท่อระบายน้ำ</option>
-                      <option value="สาธารณูปโภค">สาธารณูปโภค</option>
-                      <option value="อื่นๆ">อื่นๆ</option>
-                    </>
-                  )}
+                  <option value="">
+                    {selectedCategoryId ? 'กรุณาเลือก' : 'กรุณาเลือกหมวดหมู่ก่อน'}
+                  </option>
+                  {problemTypes.map((problemType) => (
+                    <option key={problemType.id} value={problemType.name}>
+                      {problemType.name}
+                    </option>
+                  ))}
                 </select>
-                {categories.length === 0 && (
+                {selectedCategoryId && problemTypes.length === 0 && (
                   <p className="text-xs text-gray-500 mt-1">
-                    กำลังโหลดประเภทปัญหา...
-                  </p>
-                )}
-                {formData.problemType === 'ไฟส่องสว่าง' && (
-                  <p className="text-xs text-blue-600 mt-1">
-                    💡 เลือกประเภทไฟส่องสว่างเป็นค่าเริ่มต้น
+                    ไม่มีประเภทปัญหาในหมวดหมู่นี้
                   </p>
                 )}
               </div>

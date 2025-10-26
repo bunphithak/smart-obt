@@ -39,9 +39,29 @@ export default function ReportDetailPage() {
   const [showImageModal, setShowImageModal] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [confirmData, setConfirmData] = useState({ message: '', onConfirm: null });
+  const [problemType, setProblemType] = useState(null);
 
   useEffect(() => {
     setIsClient(true);
+  }, []);
+
+  const fetchProblemType = useCallback(async (problemTypeId) => {
+    if (!problemTypeId) return;
+    
+    try {
+      const res = await fetch('/api/problem-types');
+      const data = await res.json();
+      if (data.success && data.data) {
+        // Find by ID (UUID)
+        const found = data.data.find(pt => String(pt.id) === String(problemTypeId));
+        
+        if (found) {
+          setProblemType(found);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching problem type:', error);
+    }
   }, []);
 
   const fetchReportDetail = useCallback(async () => {
@@ -98,13 +118,26 @@ export default function ReportDetailPage() {
           note: '',
           rejectionReason: ''
         });
+
+        // Fetch problem type details if available
+        // Note: problemType is now stored as UUID in the database
+        if (reportData.problemType && reportData.problemTypeDescription) {
+          // Data already includes problem type info from API
+          setProblemType({
+            name: reportData.problemType,
+            description: reportData.problemTypeDescription
+          });
+        } else if (reportData.problemType && !reportData.problemTypeName) {
+          // Fallback: fetch by UUID if API didn't join properly
+          await fetchProblemType(reportData.problemType);
+        }
       }
       setLoading(false);
     } catch (error) {
       console.error('Error fetching report:', error);
       setLoading(false);
     }
-  }, [id]);
+  }, [id, fetchProblemType]);
 
   useEffect(() => {
     if (isClient && id) {
@@ -339,6 +372,27 @@ export default function ReportDetailPage() {
                   </div>
                 )}
 
+                {report.problemType && report.reportType === 'repair' && (
+                  <div>
+                    <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                      ประเภทปัญหา
+                    </label>
+                    <p className="text-gray-800 dark:text-white">
+                      {problemType ? (
+                        <>
+                          {problemType.name}
+                          {problemType.description && (
+                            <span className="text-xs text-gray-500 block mt-1">
+                              {problemType.description}
+                            </span>
+                          )}
+                        </>
+                      ) : (
+                        report.problemType
+                      )}
+                    </p>
+                  </div>
+                )}
 
                 <div>
                   <label className="text-sm font-medium text-gray-600 dark:text-gray-400">

@@ -294,7 +294,7 @@ export default function RequestForm() {
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  ประเภทคำร้อง *
+                  หมวดคำร้อง <span className="text-red-500">*</span>
                 </label>
                 <select
                   name="requestType"
@@ -303,7 +303,7 @@ export default function RequestForm() {
                   required
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
                 >
-                  <option value="">เลือกประเภทคำร้อง</option>
+                  <option value="">เลือกหมวดคำร้อง</option>
                   {categories.length > 0 ? (
                     categories.map((category) => (
                       <option key={category.id} value={category.name}>
@@ -328,7 +328,7 @@ export default function RequestForm() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  หัวข้อคำร้อง *
+                  หัวข้อคำร้อง <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -336,14 +336,14 @@ export default function RequestForm() {
                   value={formData.title}
                   onChange={handleChange}
                   required
-                  placeholder="เช่น ขอใช้ศาลาอเนกประสงค์"
+                  placeholder="เช่น ขอติดตั้งไฟส่องสว่างใหม่"
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  สถานที่/พื้นที่ที่เกี่ยวข้อง *
+                  สถานที่/พื้นที่ที่เกี่ยวข้อง <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -380,7 +380,7 @@ export default function RequestForm() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  รายละเอียดคำร้อง *
+                  รายละเอียดคำร้อง <span className="text-red-500">*</span>
                 </label>
                 <textarea
                   name="description"
@@ -396,7 +396,7 @@ export default function RequestForm() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    ชื่อผู้ยื่นคำร้อง *
+                    ชื่อผู้ยื่นคำร้อง <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -410,7 +410,7 @@ export default function RequestForm() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    เบอร์โทรศัพท์ *
+                    เบอร์โทรศัพท์ <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="tel"

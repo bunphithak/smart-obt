@@ -53,10 +53,11 @@ export default async function handler(req, res) {
           res.status(200).json({ 
             success: true, 
             data: {
+              category: asset.category_name,
+              categoryId: asset.category_id,
               id: asset.id,
               name: asset.name,
               code: asset.code,
-              category: asset.category_name,
               status: asset.status,
               villageId: asset.village_id,
               villageName: asset.village_name,
@@ -98,10 +99,11 @@ export default async function handler(req, res) {
           res.status(200).json({ 
             success: true, 
             data: [{
+              category: asset.category_name,
+              categoryId: asset.category_id,
               id: asset.id,
               name: asset.name,
               code: asset.code,
-              category: asset.category_name,
               status: asset.status,
               villageId: asset.village_id,
               villageName: asset.village_name,
@@ -155,10 +157,11 @@ export default async function handler(req, res) {
           const result = await pool.query(query, queryParams);
           
           const assets = result.rows.map(row => ({
+            category: row.category_name,
+            categoryId: row.category_id,
             id: row.id,
             name: row.name,
             code: row.code,
-            category: row.category_name,
             status: row.status,
             villageId: row.village_id,
             villageName: row.village_name,
@@ -271,10 +274,11 @@ export default async function handler(req, res) {
         res.status(201).json({ 
           success: true, 
           data: {
+            category: categoryExists.rows[0].name,
+            categoryId: newAsset.category_id,
             id: newAsset.id,
             name: newAsset.name,
             code: newAsset.code,
-            category: categoryExists.rows[0].name,
             status: newAsset.status,
             villageId: newAsset.village_id,
             villageName: villageExists.rows[0].name,

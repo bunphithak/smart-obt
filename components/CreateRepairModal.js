@@ -1,18 +1,14 @@
 import { useState, useEffect } from 'react';
 import AlertModal from './AlertModal';
-import { PRIORITY, PRIORITY_LABELS, ASSET_STATUS_LABELS } from '../lib/constants';
-import dynamic from 'next/dynamic';
-
-// Dynamic import for MapPicker to avoid SSR issues
-const MapPicker = dynamic(() => import('./MapPicker'), {
-  ssr: false,
-  loading: () => <div className="p-4 text-center">กำลังโหลดแผนที่...</div>
-});
+import MapModal from './MapModal';
+import { PRIORITY, PRIORITY_LABELS } from '../lib/constants';
 
 export default function CreateRepairModal({ isOpen, onClose, reportId, onSuccess }) {
-  const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [users, setUsers] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [problemTypes, setProblemTypes] = useState([]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState('');
   const [report, setReport] = useState(null);
   const [showAlertModal, setShowAlertModal] = useState(false);
   const [alertData, setAlertData] = useState({ type: 'info', title: '', message: '' });
@@ -28,6 +24,7 @@ export default function CreateRepairModal({ isOpen, onClose, reportId, onSuccess
     description: '',
     assignedTo: '',
     priority: PRIORITY.MEDIUM,
+    categoryId: '',
     estimatedCost: '',
     dueDate: '',
     notes: '',
@@ -40,6 +37,7 @@ export default function CreateRepairModal({ isOpen, onClose, reportId, onSuccess
   useEffect(() => {
     if (isOpen) {
       fetchUsers();
+      fetchCategories();
       if (reportId) {
         fetchReportDetail();
       }
@@ -58,6 +56,57 @@ export default function CreateRepairModal({ isOpen, onClose, reportId, onSuccess
     }
   };
 
+  const fetchCategories = async () => {
+    try {
+      const res = await fetch('/api/categories');
+      const data = await res.json();
+      if (data.success) {
+        setCategories(data.data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+    }
+  };
+
+  const fetchProblemTypes = async (categoryId) => {
+    if (!categoryId) {
+      setProblemTypes([]);
+      return;
+    }
+    try {
+      const res = await fetch('/api/problem-types');
+      const data = await res.json();
+      console.log('📋 Problem Types API Response:', data);
+      if (data.success) {
+        // Filter problem types by category
+        const filtered = data.data.filter(pt => {
+          const categoryMatch = String(pt.categoryId) === String(categoryId);
+          const isActive = pt.isActive !== false; // Default to true if not specified
+          console.log('🎯 Checking:', { 
+            ptName: pt.name, 
+            ptCategoryId: pt.categoryId, 
+            searchCategoryId: categoryId,
+            categoryMatch,
+            isActive,
+            result: categoryMatch && isActive
+          });
+          return categoryMatch && isActive;
+        });
+        console.log('🔍 Filtered Problem Types:', { categoryId, filtered });
+        setProblemTypes(filtered);
+      }
+    } catch (error) {
+      console.error('Error fetching problem types:', error);
+    }
+  };
+
+  const handleCategoryChange = (e) => {
+    const categoryId = e.target.value;
+    setSelectedCategoryId(categoryId);
+    setFormData(prev => ({ ...prev, categoryId, title: '' }));
+    fetchProblemTypes(categoryId);
+  };
+
   const fetchReportDetail = async () => {
     try {
       const res = await fetch(`/api/reports?id=${reportId}`);
@@ -65,12 +114,36 @@ export default function CreateRepairModal({ isOpen, onClose, reportId, onSuccess
       if (data.success && data.data.length > 0) {
         const reportData = data.data[0];
         setReport(reportData);
+        
+        // Get category ID from asset or report
+        let categoryId = null;
+        
+        // If assetCode exists, fetch asset details to get category
+        if (reportData.assetCode) {
+          try {
+            const assetRes = await fetch(`/api/assets?code=${reportData.assetCode}`);
+            const assetData = await assetRes.json();
+            if (assetData.success && assetData.data.length > 0) {
+              categoryId = assetData.data[0].categoryId;
+            }
+          } catch (e) {
+            console.error('Error fetching asset:', e);
+          }
+        }
+        
+        // Set category ID and fetch problem types
+        if (categoryId) {
+          setSelectedCategoryId(categoryId);
+          await fetchProblemTypes(categoryId);
+        }
+        
         // Pre-fill form with report data
         setFormData(prev => ({
           ...prev,
           title: reportData.problemType || reportData.title || '',
           description: reportData.description || '',
-          priority: reportData.priority || PRIORITY.MEDIUM
+          priority: reportData.priority || PRIORITY.MEDIUM,
+          categoryId: categoryId || ''
         }));
       }
     } catch (error) {
@@ -90,7 +163,16 @@ export default function CreateRepairModal({ isOpen, onClose, reportId, onSuccess
       const data = await res.json();
       
       if (data.success && data.data.length > 0) {
-        setAssetInfo(data.data[0]);
+        const asset = data.data[0];
+        setAssetInfo(asset);
+        
+        // Auto-select category if found
+        if (asset.categoryId) {
+          setFormData(prev => ({
+            ...prev,
+            categoryId: asset.categoryId
+          }));
+        }
       } else {
         setAssetInfo(null);
         showAlert('warning', 'ไม่พบข้อมูล', `ไม่พบทรัพย์สินรหัส ${code}`);
@@ -117,8 +199,40 @@ export default function CreateRepairModal({ isOpen, onClose, reportId, onSuccess
     setShowAlertModal(true);
   };
 
+  const clearForm = () => {
+    setFormData({
+      title: '',
+      description: '',
+      assignedTo: '',
+      priority: PRIORITY.MEDIUM,
+      categoryId: '',
+      estimatedCost: '',
+      dueDate: '',
+      notes: '',
+      assetCode: '',
+      location: '',
+      latitude: null,
+      longitude: null
+    });
+    setAssetCode('');
+    setAssetInfo(null);
+    setLocation('');
+    setCoordinates(null);
+  };
+
+  const handleClose = () => {
+    clearForm();
+    onClose();
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Validate: ต้องมีหมวดหมู่
+    if (!formData.categoryId) {
+      showAlert('error', 'ไม่สามารถบันทึกได้', 'กรุณาเลือกหมวดหมู่');
+      return;
+    }
     
     // Validate: ต้องมีช่างผู้รับผิดชอบ
     if (!formData.assignedTo) {
@@ -154,23 +268,7 @@ export default function CreateRepairModal({ isOpen, onClose, reportId, onSuccess
           onSuccess(data.data);
         }
         // Reset form
-        setFormData({
-          title: '',
-          description: '',
-          assignedTo: '',
-          priority: 'ปานกลาง',
-          estimatedCost: '',
-          dueDate: '',
-          notes: '',
-          assetCode: '',
-          location: '',
-          latitude: null,
-          longitude: null
-        });
-        setAssetCode('');
-        setAssetInfo(null);
-        setLocation('');
-        setCoordinates(null);
+        clearForm();
         setTimeout(() => {
           onClose();
         }, 1500);
@@ -195,7 +293,7 @@ export default function CreateRepairModal({ isOpen, onClose, reportId, onSuccess
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold text-gray-900">สร้างงานซ่อม</h2>
               <button
-                onClick={onClose}
+                onClick={handleClose}
                 className="text-gray-400 hover:text-gray-600 transition-colors"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -266,35 +364,61 @@ export default function CreateRepairModal({ isOpen, onClose, reportId, onSuccess
                     <div><strong>รหัส:</strong> {assetInfo.code}</div>
                     <div><strong>หมวดหมู่:</strong> {assetInfo.category}</div>
                     <div><strong>หมู่บ้าน:</strong> {assetInfo.villageName}</div>
-                    <div><strong>สถานะ:</strong> {ASSET_STATUS_LABELS[assetInfo.status] || assetInfo.status}</div>
                     <div><strong>ตำแหน่ง:</strong> {assetInfo.locationName || 'ไม่ระบุ'}</div>
                   </div>
-                  {assetInfo.description && (
-                    <div className="mt-2 text-sm">
-                      <strong>รายละเอียด:</strong> {assetInfo.description}
-                    </div>
-                  )}
                 </div>
               )}
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  หัวข้องานซ่อม *
+                  หมวดหมู่ <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="text"
-                  name="title"
-                  value={formData.title}
-                  onChange={handleChange}
+                <select
+                  name="categoryId"
+                  value={selectedCategoryId || formData.categoryId}
+                  onChange={handleCategoryChange}
                   required
-                  placeholder="ระบุหัวข้องานซ่อม"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
+                  disabled={!!assetInfo}
+                  className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${!!assetInfo ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                >
+                  <option value="">เลือกหมวดหมู่</option>
+                  {categories.filter(cat => cat.isActive).map(category => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  รายละเอียดงานซ่อม *
+                  ประเภทปัญหา <span className="text-red-500">*</span>
+                </label>
+                <select
+                  name="title"
+                  value={formData.title}
+                  onChange={handleChange}
+                  required
+                  disabled={!selectedCategoryId && !formData.categoryId}
+                  className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${(!selectedCategoryId && !formData.categoryId) ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                >
+                  <option value="">กรุณาเลือก</option>
+                  {problemTypes.map((problemType) => (
+                    <option key={problemType.id} value={problemType.name}>
+                      {problemType.name}
+                    </option>
+                  ))}
+                </select>
+                {(selectedCategoryId || formData.categoryId) && problemTypes.length === 0 && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    ไม่มีประเภทปัญหาในหมวดหมู่นี้
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  รายละเอียดงานซ่อม <span className="text-red-500">*</span>
                 </label>
                 <textarea
                   name="description"
@@ -424,7 +548,7 @@ export default function CreateRepairModal({ isOpen, onClose, reportId, onSuccess
               <div className="flex gap-3 pt-4">
                 <button
                   type="button"
-                  onClick={onClose}
+                  onClick={handleClose}
                   className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
                 >
                   ยกเลิก
@@ -450,19 +574,18 @@ export default function CreateRepairModal({ isOpen, onClose, reportId, onSuccess
         type={alertData.type}
       />
 
-      {/* Map Picker Modal */}
-      {showMapPicker && (
-        <MapPicker
-          isOpen={showMapPicker}
-          onClose={() => setShowMapPicker(false)}
-          onLocationSelect={(locationData) => {
-            setLocation(locationData.address || locationData.location);
-            setCoordinates({ lat: locationData.lat, lng: locationData.lng });
-            setShowMapPicker(false);
-          }}
-          initialLocation={coordinates ? { lat: coordinates.lat, lng: coordinates.lng } : null}
-        />
-      )}
+      {/* Map Modal */}
+      <MapModal
+        isOpen={showMapPicker}
+        onClose={() => setShowMapPicker(false)}
+        initialLat={coordinates?.lat}
+        initialLng={coordinates?.lng}
+        initialAddress={location}
+        onConfirm={(lat, lng, address) => {
+          setCoordinates({ lat, lng });
+          setLocation(address || '');
+        }}
+      />
     </>
   );
 }

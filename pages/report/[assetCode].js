@@ -16,6 +16,7 @@ export default function PublicReportForm() {
   const [showAlertModal, setShowAlertModal] = useState(false);
   const [alertData, setAlertData] = useState({ type: 'info', title: '', message: '' });
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [problemTypes, setProblemTypes] = useState([]);
   
   const [formData, setFormData] = useState({
     problemType: '',
@@ -34,7 +35,13 @@ export default function PublicReportForm() {
       const res = await fetch(`/api/assets?code=${assetCode}`);
       const data = await res.json();
       if (data.success && data.data.length > 0) {
-        setAsset(data.data[0]);
+        const assetData = data.data[0];
+        setAsset(assetData);
+        
+        // Fetch problem types for this category
+        if (assetData.categoryId) {
+          await fetchProblemTypes(assetData.categoryId);
+        }
       }
       setLoading(false);
     } catch (fetchError) {
@@ -42,6 +49,28 @@ export default function PublicReportForm() {
       setLoading(false);
     }
   }, [assetCode]);
+
+  const fetchProblemTypes = async (categoryId) => {
+    if (!categoryId) {
+      setProblemTypes([]);
+      return;
+    }
+    
+    try {
+      const res = await fetch('/api/problem-types');
+      const data = await res.json();
+      if (data.success) {
+        const filtered = data.data.filter(pt => {
+          const categoryMatch = String(pt.categoryId) === String(categoryId);
+          const isActive = pt.isActive !== false;
+          return categoryMatch && isActive;
+        });
+        setProblemTypes(filtered);
+      }
+    } catch (error) {
+      console.error('Error fetching problem types:', error);
+    }
+  };
 
   useEffect(() => {
     if (isClient && assetCode) {
@@ -283,7 +312,7 @@ export default function PublicReportForm() {
                   </div>
                   <div>
                     <p className="text-blue-700"><strong>หมวดหมู่:</strong> {asset.category}</p>
-                    <p className="text-blue-700"><strong>สถานที่:</strong> {asset.location}</p>
+                    <p className="text-blue-700"><strong>สถานที่:</strong> {asset.locationName || asset.locationAddress || 'ไม่ระบุ'}</p>
                   </div>
                 </div>
               </div>
@@ -292,7 +321,7 @@ export default function PublicReportForm() {
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  ประเภทปัญหา *
+                  ประเภทปัญหา <span className="text-red-500">*</span>
                 </label>
                 <select
                   name="problemType"
@@ -302,17 +331,22 @@ export default function PublicReportForm() {
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
                 >
                   <option value="">เลือกประเภทปัญหา</option>
-                  <option value="ชำรุด">ชำรุด</option>
-                  <option value="เสียหาย">เสียหาย</option>
-                  <option value="ไม่ทำงาน">ไม่ทำงาน</option>
-                  <option value="อันตราย">อันตราย</option>
-                  <option value="อื่นๆ">อื่นๆ</option>
+                  {problemTypes.map((problemType) => (
+                    <option key={problemType.id} value={problemType.name}>
+                      {problemType.name}
+                    </option>
+                  ))}
                 </select>
+                {problemTypes.length === 0 && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    กำลังโหลดประเภทปัญหา...
+                  </p>
+                )}
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  รายละเอียดปัญหา *
+                  รายละเอียดปัญหา <span className="text-red-500">*</span>
                 </label>
                 <textarea
                   name="description"
@@ -328,7 +362,7 @@ export default function PublicReportForm() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    ชื่อผู้แจ้ง *
+                    ชื่อผู้แจ้ง <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -342,7 +376,7 @@ export default function PublicReportForm() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    เบอร์โทรศัพท์ *
+                    เบอร์โทรศัพท์ <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="tel"
