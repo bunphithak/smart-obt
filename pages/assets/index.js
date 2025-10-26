@@ -544,12 +544,31 @@ export default function AssetsPage() {
       setTimeout(() => {
         window.print();
         
-        // Clean up after printing
-        setTimeout(() => {
-          document.body.removeChild(printDiv);
-          document.head.removeChild(printStyles);
+        // Wait for print dialog to close before cleaning up
+        const cleanup = () => {
+          if (document.body.contains(printDiv)) {
+            document.body.removeChild(printDiv);
+          }
+          if (document.head.contains(printStyles)) {
+            document.head.removeChild(printStyles);
+          }
           showAlert('success', 'พิมพ์สำเร็จ', `พิมพ์ QR Code Label สำหรับ ${asset.name} เรียบร้อยแล้ว`);
-        }, 1000);
+        };
+        
+        // Listen for afterprint event
+        if (window.matchMedia) {
+          const mediaQueryList = window.matchMedia('print');
+          const handler = (mql) => {
+            if (!mql.matches) {
+              cleanup();
+              mediaQueryList.removeListener(handler);
+            }
+          };
+          mediaQueryList.addListener(handler);
+        } else {
+          // Fallback timeout
+          setTimeout(cleanup, 1000);
+        }
       }, 100);
     } catch (error) {
       console.error('Error printing QR code:', error);
@@ -746,12 +765,35 @@ export default function AssetsPage() {
       document.head.appendChild(printStyles);
       document.body.appendChild(printDiv);
       
-      // Print
+      // Print with cleanup handler
       window.print();
       
-      // Clean up
-      document.body.removeChild(printDiv);
-      document.head.removeChild(printStyles);
+      // Wait for print dialog to close before cleaning up
+      const cleanup = () => {
+        if (document.body.contains(printDiv)) {
+          document.body.removeChild(printDiv);
+        }
+        if (document.head.contains(printStyles)) {
+          document.head.removeChild(printStyles);
+        }
+        showAlert('success', 'พิมพ์สำเร็จ', `พิมพ์ QR Code ทั้งหมด ${filteredAssets.length} รายการเรียบร้อยแล้ว`);
+      };
+      
+      // Listen for afterprint event (works in modern browsers)
+      if (window.matchMedia) {
+        const mediaQueryList = window.matchMedia('print');
+        const handler = (mql) => {
+          if (!mql.matches) {
+            // Printing finished
+            cleanup();
+            mediaQueryList.removeListener(handler);
+          }
+        };
+        mediaQueryList.addListener(handler);
+      } else {
+        // Fallback for browsers without matchMedia
+        setTimeout(cleanup, 1000);
+      }
     } catch (error) {
       console.error('Error printing all QR codes:', error);
       showAlert('error', 'เกิดข้อผิดพลาด', 'เกิดข้อผิดพลาดในการพิมพ์ QR Code ทั้งหมด กรุณาลองใหม่');
@@ -905,7 +947,7 @@ export default function AssetsPage() {
             </svg>
             เพิ่มทรัพย์สิน
           </button>
-            {filteredAssets.length > 0 && (
+            {/* {filteredAssets.length > 0 && (
               <button
                 onClick={() => printAllQRCodes()}
                 className="inline-flex items-center px-5 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors shadow-sm"
@@ -915,7 +957,7 @@ export default function AssetsPage() {
                 </svg>
                 พิมพ์ QR Code ทั้งหมด ({filteredAssets.length})
               </button>
-            )}
+            )} */}
             <button
               onClick={openVillageSelectModal}
               className="inline-flex items-center px-5 py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors shadow-sm"

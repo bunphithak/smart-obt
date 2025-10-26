@@ -328,18 +328,6 @@ export default function ReportDetailPage() {
             <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] p-6">
               <div className="flex items-start justify-between mb-4">
                 <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className={`px-2.5 py-0.5 rounded-md text-xs font-semibold ${
-                      report.reportType === 'repair' 
-                        ? 'bg-orange-100 text-orange-700' 
-                        : 'bg-blue-100 text-blue-700'
-                    }`}>
-                      {report.reportType === 'repair' ? 'แจ้งซ่อม' : 'คำร้อง'}
-                    </span>
-                    <h2 className="text-xl font-bold text-gray-800 dark:text-white">
-                      {report.problemType || report.title}
-                    </h2>
-                  </div>
                   <div className="flex items-center space-x-3">
                     <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColorClass(report.status)}`}>
                       {getStatusLabel(report.status)}
@@ -353,20 +341,20 @@ export default function ReportDetailPage() {
 
               <div className="space-y-4">
                 <div>
-                  <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                  <label className="text-sm font-semibold text-gray-900 dark:text-gray-200">
                     ประเภทรายงาน
                   </label>
-                  <p className="text-gray-800 dark:text-white">
-                    {report.reportType === 'general' ? 'รายงานทั่วไป' : 'รายงานทรัพย์สิน'}
+                  <p className="text-gray-700 dark:text-gray-300">
+                    {report.reportCategoryName || (report.reportType === 'repair' ? 'แจ้งซ่อม' : 'ใบคำร้อง')}
                   </p>
                 </div>
 
                 {report.assetCode && (
                   <div>
-                    <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                    <label className="text-sm font-semibold text-gray-900 dark:text-gray-200">
                       รหัสทรัพย์สิน
                     </label>
-                    <p className="text-gray-800 dark:text-white font-mono">
+                    <p className="text-gray-700 dark:text-gray-300 font-mono">
                       {report.assetCode}
                     </p>
                   </div>
@@ -374,18 +362,13 @@ export default function ReportDetailPage() {
 
                 {report.problemType && report.reportType === 'repair' && (
                   <div>
-                    <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                    <label className="text-sm font-semibold text-gray-900 dark:text-gray-200">
                       ประเภทปัญหา
                     </label>
-                    <p className="text-gray-800 dark:text-white">
+                    <p className="text-gray-700 dark:text-gray-300">
                       {problemType ? (
                         <>
                           {problemType.name}
-                          {problemType.description && (
-                            <span className="text-xs text-gray-500 block mt-1">
-                              {problemType.description}
-                            </span>
-                          )}
                         </>
                       ) : (
                         report.problemType
@@ -395,13 +378,24 @@ export default function ReportDetailPage() {
                 )}
 
                 <div>
-                  <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                  <label className="text-sm font-semibold text-gray-900 dark:text-gray-200">
                     รายละเอียดปัญหา
                   </label>
-                  <p className="text-gray-800 dark:text-white whitespace-pre-wrap">
+                  <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
                     {report.description}
                   </p>
                 </div>
+
+                {report.status === REPORT_STATUS.REJECTED && report.rejectionReason && (
+                  <div>
+                    <label className="text-sm font-semibold text-gray-900 dark:text-gray-200">
+                      สาเหตุการไม่อนุมัติ
+                    </label>
+                    <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                      {report.rejectionReason}
+                    </p>
+                  </div>
+                )}
 
                 {report.images && report.images.length > 0 && (
                   <div>
@@ -495,6 +489,16 @@ export default function ReportDetailPage() {
                 ข้อมูลผู้แจ้ง
               </h3>
               <div className="space-y-3">
+                {report.villageName && (
+                  <div>
+                    <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                      หมู่บ้าน
+                    </label>
+                    <p className="text-gray-800 dark:text-white">
+                      {report.villageName}
+                    </p>
+                  </div>
+                )}
                 <div>
                   <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
                     ชื่อผู้แจ้ง
@@ -560,18 +564,35 @@ export default function ReportDetailPage() {
 
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-3">
                       สถานะการอนุมัติ
                     </label>
-                    <select
-                      value={updateData.status}
-                      onChange={(e) => setUpdateData({ ...updateData, status: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value={REPORT_STATUS.PENDING}>{REPORT_STATUS_LABELS[REPORT_STATUS.PENDING]}</option>
-                      <option value={REPORT_STATUS.APPROVED}>{REPORT_STATUS_LABELS[REPORT_STATUS.APPROVED]}</option>
-                      <option value={REPORT_STATUS.REJECTED}>{REPORT_STATUS_LABELS[REPORT_STATUS.REJECTED]}</option>
-                    </select>
+                    <div className="space-y-3 border border-gray-200 rounded-lg p-4">
+                      <label className="flex items-center cursor-pointer hover:bg-green-50 p-2 rounded transition-colors">
+                        <input
+                          type="radio"
+                          name="approvalStatus"
+                          checked={updateData.status === REPORT_STATUS.APPROVED}
+                          onChange={() => setUpdateData({ ...updateData, status: REPORT_STATUS.APPROVED })}
+                          className="w-5 h-5 text-green-600 border-gray-300 focus:ring-2 focus:ring-green-500"
+                        />
+                        <span className="ml-3 text-sm font-medium text-gray-700">
+                          ✓ อนุมัติ
+                        </span>
+                      </label>
+                      <label className="flex items-center cursor-pointer hover:bg-red-50 p-2 rounded transition-colors">
+                        <input
+                          type="radio"
+                          name="approvalStatus"
+                          checked={updateData.status === REPORT_STATUS.REJECTED}
+                          onChange={() => setUpdateData({ ...updateData, status: REPORT_STATUS.REJECTED })}
+                          className="w-5 h-5 text-red-600 border-gray-300 focus:ring-2 focus:ring-red-500"
+                        />
+                        <span className="ml-3 text-sm font-medium text-gray-700">
+                          ✗ ไม่อนุมัติ
+                        </span>
+                      </label>
+                    </div>
                   </div>
 
                   <div>
@@ -590,23 +611,25 @@ export default function ReportDetailPage() {
                     </select>
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      หมายเหตุ (ไม่บังคับ)
-                    </label>
-                    <textarea
-                      value={updateData.note}
-                      onChange={(e) => setUpdateData({ ...updateData, note: e.target.value })}
-                      rows={3}
-                      placeholder="เพิ่มหมายเหตุ..."
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-
-                  {updateData.status === 'ไม่อนุมัติ' && (
+                  {updateData.status !== REPORT_STATUS.REJECTED && (
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        สาเหตุการไม่อนุมัติ (ไม่บังคับ)
+                        หมายเหตุ (ไม่บังคับ)
+                      </label>
+                      <textarea
+                        value={updateData.note}
+                        onChange={(e) => setUpdateData({ ...updateData, note: e.target.value })}
+                        rows={3}
+                        placeholder="เพิ่มหมายเหตุ..."
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  )}
+
+                  {updateData.status === REPORT_STATUS.REJECTED && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        สาเหตุการไม่อนุมัติ <span className="text-red-500">*</span>
                       </label>
                       <textarea
                         value={updateData.rejectionReason}

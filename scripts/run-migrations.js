@@ -23,6 +23,10 @@ const pool = new Pool({
 const migrations = [
   '001_update_status_constraints.sql',
   '002_add_missing_columns.sql',
+  '003_convert_status_to_english_keys.sql',
+  '004_update_problem_type_to_uuid.sql',
+  '005_add_category_to_reports.sql',
+  '006_add_village_to_reports.sql',
 ];
 
 async function runMigrations() {

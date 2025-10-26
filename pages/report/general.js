@@ -1,6 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
+import dynamic from 'next/dynamic';
+import SuccessModal from '../../components/SuccessModal';
+
+const MapPicker = dynamic(() => import('../../components/MapPicker'), {
+  ssr: false,
+  loading: () => <p>กำลังโหลดแผนที่...</p>
+});
 
 export default function GeneralReportForm() {
   const router = useRouter();
@@ -12,16 +19,23 @@ export default function GeneralReportForm() {
   const [location, setLocation] = useState(null);
   const [isClient, setIsClient] = useState(false);
   const [villageName, setVillageName] = useState('');
+  const [villageData, setVillageData] = useState(null);
   const [showAlertModal, setShowAlertModal] = useState(false);
   const [alertData, setAlertData] = useState({ type: 'info', title: '', message: '' });
+  const [categories, setCategories] = useState([]);
+  const [problemTypes, setProblemTypes] = useState([]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState('');
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
   
   const [formData, setFormData] = useState({
+    categoryId: '',
     problemType: '',
     description: '',
     location: '',
     reporterName: '',
     reporterPhone: '',
-    images: []
+    images: [],
+    coordinates: null
   });
 
   useEffect(() => {
@@ -32,23 +46,74 @@ export default function GeneralReportForm() {
     try {
       const res = await fetch(`/api/villages?id=${villageId}`);
       const data = await res.json();
-      if (data.success && data.data.length > 0) {
-        setVillageName(data.data[0].name);
+      if (data.success && data.data) {
+        // Note: single village returns an object, not an array
+        const village = data.data;
+        setVillageName(village.name);
+        setVillageData(village);
       }
     } catch (fetchError) {
       console.error('Error fetching village:', fetchError);
     }
   }, [villageId]);
 
+  const fetchCategories = useCallback(async () => {
+    try {
+      const res = await fetch('/api/categories');
+      const data = await res.json();
+      if (data.success && data.data.length > 0) {
+        setCategories(data.data);
+      }
+    } catch (fetchError) {
+      console.error('Error fetching categories:', fetchError);
+    }
+  }, []);
+
+  const fetchProblemTypes = useCallback(async (categoryId) => {
+    if (!categoryId) {
+      setProblemTypes([]);
+      return;
+    }
+    try {
+      const res = await fetch('/api/problem-types');
+      const data = await res.json();
+      console.log('📋 Problem Types API Response:', data);
+      if (data.success) {
+        const filtered = data.data.filter(pt => {
+          const categoryMatch = String(pt.categoryId) === String(categoryId);
+          const isActive = pt.isActive !== false;
+          console.log('🎯 Checking:', { ptName: pt.name, ptCategoryId: pt.categoryId, searchCategoryId: categoryId, categoryMatch, isActive, result: categoryMatch && isActive });
+          return categoryMatch && isActive;
+        });
+        console.log('🔍 Filtered Problem Types:', { categoryId, filtered });
+        setProblemTypes(filtered);
+      }
+    } catch (error) {
+      console.error('Error fetching problem types:', error);
+    }
+  }, []);
+
+  const handleCategoryChange = (e) => {
+    const categoryId = e.target.value;
+    setSelectedCategoryId(categoryId);
+    setFormData(prev => ({ 
+      ...prev, 
+      categoryId: categoryId,
+      problemType: '' 
+    }));
+    fetchProblemTypes(categoryId);
+  };
+
   useEffect(() => {
     if (isClient) {
       getLocation();
+      fetchCategories();
       if (villageId) {
         fetchVillageName();
       }
       setLoading(false);
     }
-  }, [isClient, villageId, fetchVillageName]);
+  }, [isClient, villageId, fetchVillageName, fetchCategories]);
 
   const getLocation = () => {
     if (typeof window !== 'undefined' && navigator.geolocation) {
@@ -68,9 +133,41 @@ export default function GeneralReportForm() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+    
+    // Auto-format phone number
+    if (name === 'reporterPhone') {
+      // Remove all non-digits
+      let phone = value.replace(/\D/g, '');
+      
+      // Limit to 10 digits
+      if (phone.length > 10) {
+        phone = phone.slice(0, 10);
+      }
+      
+      // Format as 0XX-XXX-XXXX
+      if (phone.length > 6) {
+        phone = phone.slice(0, 3) + '-' + phone.slice(3, 6) + '-' + phone.slice(6);
+      } else if (phone.length > 3) {
+        phone = phone.slice(0, 3) + '-' + phone.slice(3);
+      }
+      
+      setFormData(prev => ({
+        ...prev,
+        [name]: phone
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+    }
+  };
+
+  const handleLocationSelect = (lat, lng, address) => {
     setFormData(prev => ({
       ...prev,
-      [name]: value
+      coordinates: { lat, lng },
+      locationAddress: address
     }));
   };
 
@@ -118,11 +215,16 @@ export default function GeneralReportForm() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    console.log('🚀 Form submitted!');
     setSubmitting(true);
 
     try {
+      console.log('📝 Form data:', formData);
+      console.log('📍 Coordinates:', formData.coordinates);
+      
       // Create FormData for file upload
       const formDataToSend = new FormData();
+      formDataToSend.append('categoryId', formData.categoryId);
       formDataToSend.append('problemType', formData.problemType);
       formDataToSend.append('description', formData.description);
       formDataToSend.append('location', formData.location);
@@ -135,31 +237,62 @@ export default function GeneralReportForm() {
         formDataToSend.append('villageId', villageId);
       }
       
-      if (location) {
-        formDataToSend.append('gpsLocation', JSON.stringify(location));
+      // Use pin location if available, otherwise use GPS location
+      const locationToSend = formData.coordinates || location;
+      if (locationToSend) {
+        formDataToSend.append('gpsLocation', JSON.stringify(locationToSend));
       }
+      
+      // Send coordinates separately if available
+      if (formData.coordinates) {
+        formDataToSend.append('coordinates', JSON.stringify(formData.coordinates));
+      }
+      
+      // Send referrer URL
+      formDataToSend.append('referrerUrl', '/public/request');
 
       // Append images
       formData.images.forEach((imageObj) => {
         formDataToSend.append(`images`, imageObj.file);
       });
 
+      console.log('📤 Sending request to /api/reports...');
+      
       const res = await fetch('/api/reports', {
         method: 'POST',
         body: formDataToSend,
       });
 
+      console.log('📥 Response status:', res.status);
       const data = await res.json();
+      console.log('📥 Response data:', data);
       
       if (data.success) {
+        console.log('✅ Success! Ticket ID:', data.ticketId);
         setTicketId(data.ticketId);
+        setShowSuccessModal(true);
       } else {
-        showAlert('error', 'เกิดข้อผิดพลาด', data.message);
+        console.error('❌ API Error:', data.message);
+        showAlert('error', 'เกิดข้อผิดพลาด', data.message || data.error);
       }
     } catch (error) {
-      console.error('Error submitting report:', error);
-      showAlert('error', 'เกิดข้อผิดพลาด', 'เกิดข้อผิดพลาด กรุณาลองใหม่');
+      console.error('❌ Error submitting report:', error);
+      console.error('❌ Error name:', error.name);
+      console.error('❌ Error message:', error.message);
+      
+      let errorMessage = 'เกิดข้อผิดพลาดในการส่งข้อมูล กรุณาลองใหม่อีกครั้ง';
+      
+      if (error.name === 'AbortError') {
+        errorMessage = 'การส่งข้อมูลใช้เวลานานเกินไป กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต';
+        console.error('❌ Request timeout after 30 seconds');
+      } else if (error.message.includes('Failed to fetch')) {
+        errorMessage = 'ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้ กรุณาตรวจสอบว่า server กำลังทำงานอยู่';
+        console.error('❌ Network error - server may be down');
+      }
+      
+      showAlert('error', 'เกิดข้อผิดพลาด', errorMessage);
     } finally {
+      console.log('✅ Submission complete, resetting submitting state');
       setSubmitting(false);
     }
   };
@@ -182,28 +315,22 @@ export default function GeneralReportForm() {
 
   return (
     <>
-      <Head>
-        <title>แจ้งปัญหา - OBT Smart System</title>
-      </Head>
+        <Head>
+          <title>แจ้งซ่อม - OBT Smart System</title>
+        </Head>
 
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-green-50">
+      <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-50">
         {/* Header */}
         <header className="bg-white shadow-sm">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center">
               <div className="flex items-center space-x-3">
                 <img src="/images/abt-logo.png" alt="โลโก้ อบต.ละหาร" className="w-12 h-12" />
                 <div>
                   <h1 className="text-xl font-bold text-gray-900">Smart OBT</h1>
-                  <p className="text-sm text-gray-600">อบต.ละหาร - แจ้งปัญหาทั่วไป</p>
+                  <p className="text-sm text-gray-600">อบต.ละหาร - แจ้งซ่อม</p>
                 </div>
               </div>
-              <button
-                onClick={() => router.push('/public')}
-                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium text-gray-700 transition-colors"
-              >
-                กลับหน้าหลัก
-              </button>
             </div>
           </div>
         </header>
@@ -216,39 +343,83 @@ export default function GeneralReportForm() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
               </div>
-              <h1 className="text-3xl font-bold text-gray-800 mb-2">แจ้งปัญหา</h1>
-              {villageName && (
-                <p className="text-lg font-semibold text-purple-600 mb-2">{villageName}</p>
+              <h1 className="text-3xl font-bold text-gray-800 mb-2">แจ้งซ่อมทรัพย์สิน</h1>
+              {villageData && (
+                <div className="bg-gradient-to-r from-red-50 to-orange-50 border border-red-200 rounded-xl p-4 mb-4">
+                  <p className="text-lg font-semibold text-red-600 mb-2">{villageData.name}</p>
+                  {villageData.location && (
+                    <p className="text-sm text-gray-600">
+                      📍 {
+                        typeof villageData.location === 'string' 
+                          ? villageData.location 
+                          : villageData.location?.villageName || villageData.location?.subdistrict || 'ตำแหน่งหมู่บ้าน'
+                      }
+                    </p>
+                  )}
+                  {villageData.description && (
+                    <p className="text-sm text-gray-600 mt-2">{villageData.description}</p>
+                  )}
+                </div>
               )}
-              <p className="text-gray-600">กรุณากรอกข้อมูลปัญหาที่พบ</p>
+              <p className="text-gray-600">กรุณากรอกรายละเอียดการแจ้งซ่อม</p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  ประเภทปัญหา *
+                  หมวดหมู่ทรัพย์สิน <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={selectedCategoryId}
+                  onChange={handleCategoryChange}
+                  required
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                >
+                  <option value="">เลือกหมวดหมู่</option>
+                  {categories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+                {categories.length === 0 && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    กำลังโหลดหมวดหมู่...
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  ประเภทปัญหา <span className="text-red-500">*</span>
                 </label>
                 <select
                   name="problemType"
                   value={formData.problemType}
                   onChange={handleChange}
                   required
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                  disabled={!selectedCategoryId}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
                 >
-                  <option value="">เลือกประเภทปัญหา</option>
-                  <option value="ถนน">ถนนชำรุด</option>
-                  <option value="ไฟฟ้า">ไฟฟ้า</option>
-                  <option value="ประปา">ประปา</option>
-                  <option value="ท่อระบายน้ำ">ท่อระบายน้ำ</option>
-                  <option value="สาธารณูปโภค">สาธารณูปโภค</option>
-                  <option value="สิ่งแวดล้อม">สิ่งแวดล้อม</option>
-                  <option value="อื่นๆ">อื่นๆ</option>
+                  <option value="">
+                    {selectedCategoryId ? 'กรุณาเลือก' : 'กรุณาเลือกหมวดหมู่ก่อน'}
+                  </option>
+                  {problemTypes.map((problemType) => (
+                    <option key={problemType.id} value={problemType.name}>
+                      {problemType.name}
+                    </option>
+                  ))}
                 </select>
+                {selectedCategoryId && problemTypes.length === 0 && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    ไม่มีประเภทปัญหาในหมวดหมู่นี้
+                  </p>
+                )}
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  สถานที่เกิดปัญหา *
+                  สถานที่ที่เกิดปัญหา *
                 </label>
                 <input
                   type="text"
@@ -259,6 +430,28 @@ export default function GeneralReportForm() {
                   placeholder="ระบุสถานที่ที่เกิดปัญหา"
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
                 />
+              </div>
+
+              {/* Map Picker */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  ปักหมุดตำแหน่งบนแผนที่
+                </label>
+                <div className="border border-gray-300 rounded-lg overflow-hidden">
+                  <MapPicker
+                    initialLat={location?.latitude || 12.6807}
+                    initialLng={location?.longitude || 101.2029}
+                    onLocationSelect={handleLocationSelect}
+                  />
+                </div>
+                {formData.coordinates && (
+                  <p className="text-xs text-green-600 mt-2">
+                    ✓ ปักหมุดแล้ว: {formData.coordinates.lat.toFixed(6)}, {formData.coordinates.lng.toFixed(6)}
+                  </p>
+                )}
+                <p className="text-xs text-gray-500 mt-1">
+                  คลิกบนแผนที่เพื่อปักหมุดตำแหน่งที่เกิดปัญหา
+                </p>
               </div>
 
               <div>
@@ -301,9 +494,15 @@ export default function GeneralReportForm() {
                     value={formData.reporterPhone}
                     onChange={handleChange}
                     required
+                    pattern="[0-9]{3}-[0-9]{3}-[0-9]{4}"
                     placeholder="08X-XXX-XXXX"
+                    maxLength="12"
+                    title="กรุณากรอกเบอร์โทรศัพท์ 10 หลัก เช่น 081-234-5678"
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
                   />
+                  <p className="text-xs text-gray-500 mt-1">
+                    รูปแบบ: 0XX-XXX-XXXX (10 หลัก)
+                  </p>
                 </div>
               </div>
 
@@ -377,39 +576,7 @@ export default function GeneralReportForm() {
               </button>
             </form>
 
-            {ticketId && (
-              <div className="mt-8 p-8 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl">
-                <div className="text-center">
-                  <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                    <svg className="w-10 h-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                  </div>
-                  <h3 className="text-2xl font-bold text-green-800 mb-4">ส่งรายงานสำเร็จ!</h3>
-                  <p className="text-green-700 mb-6">รหัสติดตามงานของคุณคือ:</p>
-                  <div className="bg-white border-2 border-green-300 rounded-xl p-6 mb-6 shadow-lg">
-                    <p className="text-3xl font-bold text-green-800 font-mono">{ticketId}</p>
-                  </div>
-                  <p className="text-green-700 mb-6 text-lg">
-                    กรุณาบันทึกรหัสนี้ไว้เพื่อติดตามสถานะการดำเนินงาน
-                  </p>
-                  <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                    <button
-                      onClick={() => router.push(`/track/${ticketId}`)}
-                      className="bg-gradient-to-r from-green-500 to-green-600 text-white px-8 py-3 rounded-lg font-semibold hover:from-green-600 hover:to-green-700 transition-all transform hover:scale-105"
-                    >
-                      ตรวจสอบสถานะ
-                    </button>
-                    <button
-                      onClick={() => router.push('/public')}
-                      className="bg-gradient-to-r from-gray-500 to-gray-600 text-white px-8 py-3 rounded-lg font-semibold hover:from-gray-600 hover:to-gray-700 transition-all transform hover:scale-105"
-                    >
-                      กลับหน้าหลัก
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
+
 
             <div className="mt-6 text-center text-sm text-gray-600">
               <p>หากมีข้อสงสัย โทร. 0-XXXX-XXXX</p>
@@ -474,6 +641,21 @@ export default function GeneralReportForm() {
             </div>
           </div>
         )}
+
+        {/* Success Modal */}
+        <SuccessModal
+          isOpen={showSuccessModal}
+          onClose={() => {
+            setShowSuccessModal(false);
+            router.push('/public');
+          }}
+          ticketId={ticketId}
+          reportType="repair"
+          onCheckStatus={() => {
+            setShowSuccessModal(false);
+            router.push(`/track/${ticketId}`);
+          }}
+        />
       </div>
     </>
   );

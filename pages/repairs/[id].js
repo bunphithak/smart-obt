@@ -478,39 +478,16 @@ export default function RepairDetailPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   หัวข้อ *
                 </label>
-                {isEditing ? (
-                  <input
-                    type="text"
-                    value={formData.title}
-                    onChange={(e) =>
-                      setFormData({ ...formData, title: e.target.value })
-                    }
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
-                  />
-                ) : (
-                  <p className="text-gray-900">{repair.title}</p>
-                )}
+                <p className="text-gray-900">{repair.title}</p>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   รายละเอียด
                 </label>
-                {isEditing ? (
-                  <textarea
-                    value={formData.description}
-                    onChange={(e) =>
-                      setFormData({ ...formData, description: e.target.value })
-                    }
-                    rows={4}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                ) : (
-                  <p className="text-gray-900 whitespace-pre-wrap">
-                    {repair.description || "-"}
-                  </p>
-                )}
+                <p className="text-gray-900 whitespace-pre-wrap">
+                  {repair.description || "-"}
+                </p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -546,28 +523,13 @@ export default function RepairDetailPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     ความสำคัญ
                   </label>
-                  {isEditing ? (
-                    <select
-                      value={formData.priority}
-                      onChange={(e) =>
-                        setFormData({ ...formData, priority: e.target.value })
-                      }
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value={PRIORITY.LOW}>{PRIORITY_LABELS[PRIORITY.LOW]}</option>
-                      <option value={PRIORITY.MEDIUM}>{PRIORITY_LABELS[PRIORITY.MEDIUM]}</option>
-                      <option value={PRIORITY.HIGH}>{PRIORITY_LABELS[PRIORITY.HIGH]}</option>
-                      <option value={PRIORITY.URGENT}>{PRIORITY_LABELS[PRIORITY.URGENT]}</option>
-                    </select>
-                  ) : (
-                    <span
-                      className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${getPriorityColorClass(
-                        repair.priority
-                      )}`}
-                    >
-                      {getPriorityLabel(repair.priority)}
-                    </span>
-                  )}
+                  <span
+                    className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${getPriorityColorClass(
+                      repair.priority
+                    )}`}
+                  >
+                    {getPriorityLabel(repair.priority)}
+                  </span>
                 </div>
               </div>
             </div>

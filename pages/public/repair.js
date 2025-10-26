@@ -26,6 +26,8 @@ export default function RepairForm() {
   const [problemTypes, setProblemTypes] = useState([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState('');
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [villages, setVillages] = useState([]);
+  const [selectedVillageId, setSelectedVillageId] = useState(villageId || '');
   
   const [formData, setFormData] = useState({
     categoryId: '',
@@ -35,7 +37,8 @@ export default function RepairForm() {
     reporterName: '',
     reporterPhone: '',
     images: [],
-    coordinates: null
+    coordinates: null,
+    villageId: villageId || ''
   });
 
   useEffect(() => {
@@ -53,6 +56,18 @@ export default function RepairForm() {
       console.error('Error fetching village:', fetchError);
     }
   }, [villageId]);
+
+  const fetchVillages = useCallback(async () => {
+    try {
+      const res = await fetch('/api/villages');
+      const data = await res.json();
+      if (data.success && data.data.length > 0) {
+        setVillages(data.data.filter(v => v.isActive !== false));
+      }
+    } catch (fetchError) {
+      console.error('Error fetching villages:', fetchError);
+    }
+  }, []);
 
   const fetchCategories = useCallback(async () => {
     try {
@@ -101,16 +116,28 @@ export default function RepairForm() {
     fetchProblemTypes(categoryId);
   };
 
+  const handleVillageChange = (e) => {
+    const villageIdValue = e.target.value;
+    setSelectedVillageId(villageIdValue);
+    setFormData(prev => ({ 
+      ...prev, 
+      villageId: villageIdValue
+    }));
+  };
+
   useEffect(() => {
     if (isClient) {
       getLocation();
       fetchCategories();
+      fetchVillages();
       if (villageId) {
         fetchVillageName();
+        setSelectedVillageId(villageId);
+        setFormData(prev => ({ ...prev, villageId: villageId }));
       }
       setLoading(false);
     }
-  }, [isClient, villageId, fetchVillageName, fetchCategories]);
+  }, [isClient, villageId, fetchVillageName, fetchCategories, fetchVillages]);
 
   const getLocation = () => {
     if (typeof window !== 'undefined' && navigator.geolocation) {
@@ -231,8 +258,10 @@ export default function RepairForm() {
       formDataToSend.append('timestamp', new Date().toISOString());
       formDataToSend.append('reportType', 'repair');
       
-      if (villageId) {
-        formDataToSend.append('villageId', villageId);
+      // Use formData.villageId if selected, otherwise use URL villageId
+      const selectedVillageIdValue = formData.villageId || villageId;
+      if (selectedVillageIdValue) {
+        formDataToSend.append('villageId', selectedVillageIdValue);
       }
       
       // Use pin location if available, otherwise use GPS location
@@ -369,6 +398,30 @@ export default function RepairForm() {
                 <p className="text-xs text-gray-500 mt-1">
                   ถ้ามี QR Code สามารถสแกนหรือกรอกได้
                 </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  หมู่บ้าน <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={selectedVillageId}
+                  onChange={handleVillageChange}
+                  required
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                >
+                  <option value="">เลือกหมู่บ้าน</option>
+                  {villages.map((village) => (
+                    <option key={village.id} value={village.id}>
+                      {village.name}
+                    </option>
+                  ))}
+                </select>
+                {villages.length === 0 && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    กำลังโหลดหมู่บ้าน...
+                  </p>
+                )}
               </div>
 
               <div>

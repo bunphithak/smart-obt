@@ -34,18 +34,27 @@ export default function PublicReportForm() {
     try {
       const res = await fetch(`/api/assets?code=${assetCode}`);
       const data = await res.json();
-      if (data.success && data.data.length > 0) {
-        const assetData = data.data[0];
-        setAsset(assetData);
-        
-        // Fetch problem types for this category
-        if (assetData.categoryId) {
-          await fetchProblemTypes(assetData.categoryId);
-        }
+      
+      if (!res.ok || !data.success || !data.data || data.data.length === 0) {
+        console.error('Asset not found or error:', data.error || 'Unknown error');
+        // Asset will remain null, showing error page
+        setAsset(null);
+        setLoading(false);
+        return;
       }
+      
+      const assetData = data.data[0];
+      setAsset(assetData);
+      
+      // Fetch problem types for this category
+      if (assetData.categoryId) {
+        await fetchProblemTypes(assetData.categoryId);
+      }
+      
       setLoading(false);
     } catch (fetchError) {
       console.error('Error fetching asset:', fetchError);
+      setAsset(null);
       setLoading(false);
     }
   }, [assetCode]);
@@ -183,6 +192,11 @@ export default function PublicReportForm() {
       formDataToSend.append('reporterPhone', formData.reporterPhone);
       formDataToSend.append('reportType', 'repair');
       formDataToSend.append('timestamp', new Date().toISOString());
+      
+      // Get villageId from asset
+      if (asset && asset.villageId) {
+        formDataToSend.append('villageId', asset.villageId);
+      }
       
       if (location) {
         formDataToSend.append('location', JSON.stringify(location));

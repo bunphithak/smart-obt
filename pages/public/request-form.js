@@ -22,7 +22,10 @@ export default function RequestForm() {
   const [showAlertModal, setShowAlertModal] = useState(false);
   const [alertData, setAlertData] = useState({ type: 'info', title: '', message: '' });
   const [categories, setCategories] = useState([]);
+  const [categoryId, setCategoryId] = useState('');
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [villages, setVillages] = useState([]);
+  const [selectedVillageId, setSelectedVillageId] = useState(villageId || '');
   
   const [formData, setFormData] = useState({
     requestType: '',
@@ -32,7 +35,8 @@ export default function RequestForm() {
     reporterName: '',
     reporterPhone: '',
     images: [],
-    coordinates: null
+    coordinates: null,
+    villageId: villageId || ''
   });
 
   useEffect(() => {
@@ -51,6 +55,18 @@ export default function RequestForm() {
     }
   }, [villageId]);
 
+  const fetchVillages = useCallback(async () => {
+    try {
+      const res = await fetch('/api/villages');
+      const data = await res.json();
+      if (data.success && data.data.length > 0) {
+        setVillages(data.data.filter(v => v.isActive !== false));
+      }
+    } catch (fetchError) {
+      console.error('Error fetching villages:', fetchError);
+    }
+  }, []);
+
   const fetchCategories = useCallback(async () => {
     try {
       const res = await fetch('/api/categories');
@@ -63,16 +79,28 @@ export default function RequestForm() {
     }
   }, []);
 
+  const handleVillageChange = (e) => {
+    const villageIdValue = e.target.value;
+    setSelectedVillageId(villageIdValue);
+    setFormData(prev => ({ 
+      ...prev, 
+      villageId: villageIdValue
+    }));
+  };
+
   useEffect(() => {
     if (isClient) {
       getLocation();
       fetchCategories();
+      fetchVillages();
       if (villageId) {
         fetchVillageName();
+        setSelectedVillageId(villageId);
+        setFormData(prev => ({ ...prev, villageId: villageId }));
       }
       setLoading(false);
     }
-  }, [isClient, villageId, fetchVillageName, fetchCategories]);
+  }, [isClient, villageId, fetchVillageName, fetchCategories, fetchVillages]);
 
   const getLocation = () => {
     if (typeof window !== 'undefined' && navigator.geolocation) {
@@ -179,6 +207,7 @@ export default function RequestForm() {
     try {
       // Create FormData for file upload
       const formDataToSend = new FormData();
+      formDataToSend.append('categoryId', categoryId);
       formDataToSend.append('title', formData.title);
       formDataToSend.append('problemType', formData.requestType);
       formDataToSend.append('description', formData.description);
@@ -188,8 +217,10 @@ export default function RequestForm() {
       formDataToSend.append('timestamp', new Date().toISOString());
       formDataToSend.append('reportType', 'request');
       
-      if (villageId) {
-        formDataToSend.append('villageId', villageId);
+      // Use formData.villageId if selected, otherwise use URL villageId
+      const selectedVillageIdValue = formData.villageId || villageId;
+      if (selectedVillageIdValue) {
+        formDataToSend.append('villageId', selectedVillageIdValue);
       }
       
       // Use pin location if available, otherwise use GPS location
@@ -294,19 +325,47 @@ export default function RequestForm() {
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
+                  หมู่บ้าน <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={selectedVillageId}
+                  onChange={handleVillageChange}
+                  required
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                >
+                  <option value="">เลือกหมู่บ้าน</option>
+                  {villages.map((village) => (
+                    <option key={village.id} value={village.id}>
+                      {village.name}
+                    </option>
+                  ))}
+                </select>
+                {villages.length === 0 && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    กำลังโหลดหมู่บ้าน...
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                   หมวดคำร้อง <span className="text-red-500">*</span>
                 </label>
                 <select
-                  name="requestType"
-                  value={formData.requestType}
-                  onChange={handleChange}
+                  value={categoryId}
+                  onChange={(e) => {
+                    const selectedCategoryId = e.target.value;
+                    setCategoryId(selectedCategoryId);
+                    const selectedCategory = categories.find(cat => cat.id === selectedCategoryId);
+                    setFormData(prev => ({ ...prev, requestType: selectedCategory?.name || '' }));
+                  }}
                   required
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
                 >
                   <option value="">เลือกหมวดคำร้อง</option>
                   {categories.length > 0 ? (
                     categories.map((category) => (
-                      <option key={category.id} value={category.name}>
+                      <option key={category.id} value={category.id}>
                         {category.name}
                       </option>
                     ))

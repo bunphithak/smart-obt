@@ -123,6 +123,7 @@ export default async function handler(req, res) {
           const reportAssetCode = (fields.assetCode?.[0] || fields.assetCode || '').toString().trim();
           const reportType = (fields.reportType?.[0] || fields.reportType || '').toString().trim();
           const problemType = (fields.problemType?.[0] || fields.problemType || '').toString().trim();
+          const categoryIdFromForm = (fields.categoryId?.[0] || fields.categoryId || "").toString().trim();
           const title = (fields.title?.[0] || fields.title || '').toString().trim();
           const description = (fields.description?.[0] || fields.description || '').toString().trim();
           const priority = (fields.priority?.[0] || fields.priority || '').toString().trim();
@@ -132,13 +133,15 @@ export default async function handler(req, res) {
           const gpsLocation = (fields.gpsLocation?.[0] || fields.gpsLocation || '').toString().trim();
           const coordinates = (fields.coordinates?.[0] || fields.coordinates || '').toString().trim();
           const referrerUrl = (fields.referrerUrl?.[0] || fields.referrerUrl || '').toString().trim();
+          const villageIdFromForm = (fields.villageId?.[0] || fields.villageId || '').toString().trim();
           
           console.log('📋 Extracted data:', {
             reportType,
             problemType,
             reportedBy,
             reporterPhone,
-            hasDescription: !!description
+            hasDescription: !!description,
+            villageId: villageIdFromForm
           });
 
           // Validate required fields based on report type
@@ -244,32 +247,70 @@ export default async function handler(req, res) {
             console.warn('⚠️ No coordinates to parse:', coordinates);
           }
 
-          console.log('💾 Inserting to database...');
+          
+          // Get category ID - prioritize from form, then from asset
+          let categoryId = categoryIdFromForm || null;
+          if (!categoryId && reportAssetCode) {
+            try {
+              const assetResult = await pool.query(
+                'SELECT category_id FROM assets WHERE code = $1',
+                [reportAssetCode]
+              );
+              if (assetResult.rows.length > 0) {
+                categoryId = assetResult.rows[0].category_id;
+              }
+            } catch (e) {
+              console.error('Error getting category from asset:', e);
+            }
+          }
+
+          // Convert problemType name to UUID
+          let problemTypeUuid = null;
+          if (problemType && reportType === 'repair') {
+            try {
+              const ptQuery = categoryId 
+                ? 'SELECT id FROM problem_types WHERE name = $1 AND category_id = $2 AND is_active = true'
+                : 'SELECT id FROM problem_types WHERE name = $1 AND is_active = true';
+              const ptParams = categoryId ? [problemType, categoryId] : [problemType];
+              
+              const ptResult = await pool.query(ptQuery, ptParams);
+              if (ptResult.rows.length > 0) {
+                problemTypeUuid = ptResult.rows[0].id;
+              }
+            } catch (e) {
+              console.error('Error fetching problem type UUID:', e);
+            }
+          }
+
+console.log('💾 Inserting to database...');
           console.log('💾 Values:', {
             ticketId: newTicketId,
             assetCode: reportAssetCode || null,
             reportType,
-            problemType: problemType || 'ทั่วไป',
+            problemType: problemTypeUuid,
+            categoryId,
             title: reportTitle,
             hasDescription: !!description,
             hasImages: imageUrls.length > 0,
             hasCoordinates: !!coordinatesJson,
             coordinates: coordinatesJson,
-            location: location?.trim() || ''
+            location: location?.trim() || '',
+            villageId: villageIdFromForm || null
           });
 
           const result = await pool.query(`
             INSERT INTO reports (
-              ticket_id, asset_code, report_type, problem_type, title, description,
-              status, priority, reported_by, reporter_phone, images, location, coordinates, referrer_url
+              ticket_id, asset_code, report_type, problem_type, category_id, title, description,
+              status, priority, reported_by, reporter_phone, images, location, coordinates, referrer_url, village_id
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
             RETURNING *
           `, [
             newTicketId,
             reportAssetCode || null,
             reportType,
-            problemType || 'ทั่วไป',
+            problemTypeUuid,
+            categoryId,
             reportTitle,
             description.trim(),
             REPORT_STATUS.PENDING,
@@ -279,7 +320,8 @@ export default async function handler(req, res) {
             JSON.stringify(imageUrls),
             location?.trim() || '',
             coordinatesJson ? JSON.stringify(coordinatesJson) : null,
-            referrerUrl || null
+            referrerUrl || null,
+            villageIdFromForm || null
           ]);
 
           const newReport = result.rows[0];
@@ -367,11 +409,19 @@ export default async function handler(req, res) {
               a.latitude as asset_latitude,
               a.longitude as asset_longitude,
               c.name as asset_category_name,
-              v.name as village_name
+              pc.name as report_category_name,
+              pt.name as problem_type_name,
+              pt.description as problem_type_description,
+              v.name as village_name,
+              rv.name as report_village_name,
+              r.rejection_reason
             FROM reports r
             LEFT JOIN assets a ON r.asset_code = a.code
             LEFT JOIN categories c ON a.category_id = c.id
+            LEFT JOIN categories pc ON r.category_id = pc.id
+            LEFT JOIN problem_types pt ON r.problem_type = pt.id
             LEFT JOIN villages v ON a.village_id = v.id
+            LEFT JOIN villages rv ON r.village_id = rv.id
             WHERE r.id = $1
           `, [id]);
 
@@ -404,9 +454,11 @@ export default async function handler(req, res) {
               assetLatitude: report.asset_latitude,
               assetLongitude: report.asset_longitude,
               // ข้อมูลรายงาน
-              villageName: report.village_name,
+              villageName: report.report_village_name || report.village_name,
               reportType: report.report_type,
-              problemType: report.problem_type,
+              reportCategoryName: report.report_category_name,
+              problemType: report.problem_type_name || report.problem_type,
+              problemTypeDescription: report.problem_type_description,
               title: report.title,
               description: report.description,
               status: report.status,
@@ -417,6 +469,7 @@ export default async function handler(req, res) {
               images: report.images || [],
               location: report.location,
               coordinates: displayCoordinates, // ✅ ใช้พิกัดจาก asset ถ้ามี
+              rejectionReason: report.rejection_reason,
               createdAt: report.created_at,
               updatedAt: report.updated_at
             }
@@ -428,10 +481,12 @@ export default async function handler(req, res) {
               r.*,
               a.name as asset_name,
               a.code as asset_code,
-              v.name as village_name
+              v.name as village_name,
+              rv.name as report_village_name
             FROM reports r
             LEFT JOIN assets a ON r.asset_code = a.code
             LEFT JOIN villages v ON a.village_id = v.id
+            LEFT JOIN villages rv ON r.village_id = rv.id
             WHERE 1=1
           `;
           const queryParams = [];
@@ -464,7 +519,7 @@ export default async function handler(req, res) {
             ticketId: row.ticket_id,
             assetCode: row.asset_code,
             assetName: row.asset_name,
-            villageName: row.village_name,
+            villageName: row.report_village_name || row.village_name,
             reportType: row.report_type,
             problemType: row.problem_type,
             title: row.title,
@@ -515,13 +570,15 @@ export default async function handler(req, res) {
           const gpsLocation = (fields.gpsLocation?.[0] || fields.gpsLocation || '').toString().trim();
           const coordinates = (fields.coordinates?.[0] || fields.coordinates || '').toString().trim();
           const referrerUrl = (fields.referrerUrl?.[0] || fields.referrerUrl || '').toString().trim();
+          const villageIdFromForm = (fields.villageId?.[0] || fields.villageId || '').toString().trim();
           
           console.log('📋 Extracted data:', {
             reportType,
             problemType,
             reportedBy,
             reporterPhone,
-            hasDescription: !!description
+            hasDescription: !!description,
+            villageId: villageIdFromForm
           });
 
           // Validate required fields based on report type
@@ -632,27 +689,30 @@ export default async function handler(req, res) {
             ticketId: newTicketId,
             assetCode: reportAssetCode || null,
             reportType,
-            problemType: problemType || 'ทั่วไป',
+            problemType: problemTypeUuid,
+            categoryId,
             title: reportTitle,
             hasDescription: !!description,
             hasImages: imageUrls.length > 0,
             hasCoordinates: !!coordinatesJson,
             coordinates: coordinatesJson,
-            location: location?.trim() || ''
+            location: location?.trim() || '',
+            villageId: villageIdFromForm || null
           });
 
           const result = await pool.query(`
             INSERT INTO reports (
-              ticket_id, asset_code, report_type, problem_type, title, description,
-              status, priority, reported_by, reporter_phone, images, location, coordinates, referrer_url
+              ticket_id, asset_code, report_type, problem_type, category_id, title, description,
+              status, priority, reported_by, reporter_phone, images, location, coordinates, referrer_url, village_id
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
             RETURNING *
           `, [
             newTicketId,
             reportAssetCode || null,
             reportType,
-            problemType || 'ทั่วไป',
+            problemTypeUuid,
+            categoryId,
             reportTitle,
             description.trim(),
             REPORT_STATUS.PENDING,
@@ -662,7 +722,8 @@ export default async function handler(req, res) {
             JSON.stringify(imageUrls),
             location?.trim() || '',
             coordinatesJson ? JSON.stringify(coordinatesJson) : null,
-            referrerUrl || null
+            referrerUrl || null,
+            villageIdFromForm || null
           ]);
 
           const newReport = result.rows[0];
