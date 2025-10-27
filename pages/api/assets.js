@@ -69,6 +69,7 @@ export default async function handler(req, res) {
               latitude: asset.latitude,
               longitude: asset.longitude,
               description: asset.description,
+              images: asset.images,
               createdAt: asset.created_at
             }
           });
@@ -115,6 +116,7 @@ export default async function handler(req, res) {
               latitude: asset.latitude,
               longitude: asset.longitude,
               description: asset.description,
+              images: asset.images,
               createdAt: asset.created_at
             }]
           });
@@ -173,6 +175,7 @@ export default async function handler(req, res) {
             latitude: row.latitude,
             longitude: row.longitude,
             description: row.description,
+            images: row.images,
             createdAt: row.created_at
           }));
 
@@ -197,7 +200,8 @@ export default async function handler(req, res) {
           locationName, 
           locationAddress, 
           latitude, 
-          longitude 
+          longitude,
+          images
         } = req.body;
         
         // Validate required fields
@@ -250,9 +254,9 @@ export default async function handler(req, res) {
           INSERT INTO assets (
             name, code, category_id, village_id, description, status, 
             value, purchase_date, location_name, location_address, 
-            latitude, longitude, qr_code
+            latitude, longitude, qr_code, images
           )
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
           RETURNING *
         `, [
           name.trim(),
@@ -267,7 +271,8 @@ export default async function handler(req, res) {
           locationAddress?.trim() || null,
           latitude ? parseFloat(latitude) : null,
           longitude ? parseFloat(longitude) : null,
-          `/qr/${assetCode}.png`
+          `/qr/${assetCode}.png`,
+          images ? JSON.stringify(images) : '[]'
         ]);
 
         const newAsset = result.rows[0];
@@ -309,7 +314,8 @@ export default async function handler(req, res) {
           locationName: updateLocationName, 
           locationAddress: updateLocationAddress, 
           latitude: updateLatitude, 
-          longitude: updateLongitude 
+          longitude: updateLongitude,
+          images: updateImages
         } = req.body;
         
         // Validate required fields
@@ -362,6 +368,7 @@ export default async function handler(req, res) {
               location_address = COALESCE($11, location_address),
               latitude = COALESCE($12, latitude),
               longitude = COALESCE($13, longitude),
+              images = COALESCE($14::jsonb, images),
               qr_code = CASE WHEN $3 IS NOT NULL THEN '/qr/' || $3 || '.png' ELSE qr_code END,
               updated_at = NOW()
           WHERE id = $1
@@ -379,7 +386,8 @@ export default async function handler(req, res) {
           updateLocationName?.trim(),
           updateLocationAddress?.trim(),
           updateLatitude ? parseFloat(updateLatitude) : null,
-          updateLongitude ? parseFloat(updateLongitude) : null
+          updateLongitude ? parseFloat(updateLongitude) : null,
+          updateImages ? JSON.stringify(updateImages) : null
         ]);
 
         res.status(200).json({ 

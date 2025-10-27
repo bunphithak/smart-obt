@@ -19,6 +19,9 @@ export default function AssetForm({ asset, villages, categories = [], onSubmit, 
   });
   const [showMap, setShowMap] = useState(false);
   const [generatingCode, setGeneratingCode] = useState(false);
+  const [images, setImages] = useState([]);
+  const [uploading, setUploading] = useState(false);
+  const [selectedImage, setSelectedImage] = useState(null);
 
   useEffect(() => {
     if (asset) {
@@ -30,6 +33,12 @@ export default function AssetForm({ asset, villages, categories = [], onSubmit, 
           : ''
       };
       setFormData(formattedAsset);
+      
+      // Load existing images if any
+      if (asset.images) {
+        const imageArray = Array.isArray(asset.images) ? asset.images : JSON.parse(asset.images);
+        setImages(imageArray.map(url => ({ url, preview: url })));
+      }
     }
   }, [asset]);
 
@@ -79,14 +88,78 @@ export default function AssetForm({ asset, villages, categories = [], onSubmit, 
     setShowMap(false);
   };
 
-  const handleSubmit = (e) => {
+  const handleImageUpload = (e) => {
+    const files = Array.from(e.target.files);
+    if (files.length > 0) {
+      const newImages = files.map(file => ({
+        file,
+        preview: URL.createObjectURL(file),
+        name: file.name
+      }));
+      setImages(prev => [...prev, ...newImages]);
+    }
+  };
+
+  const removeImage = (index) => {
+    setImages(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const openImageModal = (image) => {
+    setSelectedImage(image);
+  };
+
+  const closeImageModal = () => {
+    setSelectedImage(null);
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Transform category to categoryId for API
-    const submitData = {
-      ...formData,
-      categoryId: formData.category
-    };
-    onSubmit(submitData);
+    
+    // Upload images first if there are new files
+    if (images.some(img => img.file)) {
+      setUploading(true);
+      try {
+        const uploadedUrls = [];
+        for (const image of images) {
+          if (image.file) {
+            const formData = new FormData();
+            formData.append('file', image.file);
+            
+            const uploadRes = await fetch('/api/upload', {
+              method: 'POST',
+              body: formData
+            });
+            
+            const uploadData = await uploadRes.json();
+            if (uploadData.success) {
+              uploadedUrls.push(uploadData.url);
+            }
+          } else if (image.url) {
+            uploadedUrls.push(image.url);
+          }
+        }
+        
+        // Transform category to categoryId for API
+        const submitData = {
+          ...formData,
+          categoryId: formData.category,
+          images: uploadedUrls
+        };
+        onSubmit(submitData);
+      } catch (error) {
+        console.error('Error uploading images:', error);
+        alert('เกิดข้อผิดพลาดในการอัปโหลดรูปภาพ');
+        setUploading(false);
+      }
+    } else {
+      // No new images, submit existing data
+      const submitData = {
+        ...formData,
+        categoryId: formData.category,
+        images: images.map(img => img.url).filter(Boolean)
+      };
+      onSubmit(submitData);
+    }
   };
 
   return (
@@ -273,6 +346,51 @@ export default function AssetForm({ asset, villages, categories = [], onSubmit, 
         />
       </div>
 
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          รูปภาพทรัพย์สิน
+        </label>
+        <div className="space-y-4">
+          <label className="flex items-center justify-center px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-colors">
+            <svg className="w-5 h-5 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+            </svg>
+            <span className="text-gray-600">คลิกเพื่ออัปโหลดรูปภาพ</span>
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={handleImageUpload}
+              className="hidden"
+            />
+          </label>
+          
+          {images.length > 0 && (
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              {images.map((image, index) => (
+                <div key={index} className="relative">
+                  <img
+                    src={image.preview}
+                    alt={`Upload ${index + 1}`}
+                    className="w-full h-32 object-cover rounded-lg border border-gray-300 cursor-pointer hover:opacity-80 transition-opacity"
+                    onClick={() => openImageModal(image)}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeImage(index)}
+                    className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
       <div className="flex justify-end space-x-3 pt-4">
         <button
           type="button"
@@ -283,9 +401,10 @@ export default function AssetForm({ asset, villages, categories = [], onSubmit, 
         </button>
         <button
           type="submit"
-          className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors shadow-md hover:shadow-lg"
+          disabled={uploading}
+          className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {asset ? 'บันทึกการแก้ไข' : 'เพิ่มทรัพย์สิน'}
+          {uploading ? 'กำลังอัปโหลด...' : (asset ? 'บันทึกการแก้ไข' : 'เพิ่มทรัพย์สิน')}
         </button>
       </div>
 
@@ -298,6 +417,29 @@ export default function AssetForm({ asset, villages, categories = [], onSubmit, 
         initialAddress={formData.locationAddress}
         onConfirm={handleLocationSelect}
       />
+
+      {/* Image Modal */}
+      {selectedImage && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-4"
+          onClick={closeImageModal}
+        >
+          <button
+            onClick={closeImageModal}
+            className="absolute top-4 right-4 text-white hover:text-gray-300 transition-colors"
+          >
+            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+          <img
+            src={selectedImage.preview}
+            alt="Full size"
+            className="max-w-full max-h-full object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
     </form>
   );
 }

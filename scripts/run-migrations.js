@@ -27,6 +27,7 @@ const migrations = [
   '004_update_problem_type_to_uuid.sql',
   '005_add_category_to_reports.sql',
   '006_add_village_to_reports.sql',
+  '008_add_images_to_assets.sql',
 ];
 
 async function runMigrations() {
