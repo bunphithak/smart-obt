@@ -261,11 +261,11 @@ export default function RepairPDF() {
             background: white;
             width: 210mm; /* A4 width */
             min-height: 297mm; /* A4 height */
-            padding: 10mm 20mm 20mm 20mm; /* top, right, bottom, left */
+            padding: 5mm 15mm 10mm 15mm; /* top, right, bottom, left */
             margin: 0 auto;
             font-family: "Sarabun", "Tahoma", sans-serif;
-            font-size: 14px;
-            line-height: 0.8;
+            font-size: 12px;
+            line-height: 1.3;
             color: #000;
             box-sizing: border-box;
             border: 1px solid #ccc !important; /* เพิ่ม border A4 */
@@ -308,12 +308,13 @@ export default function RepairPDF() {
               width: 100% !important;
               height: auto !important;
               margin: 0 !important;
-              padding: 10mm !important;
+              padding: 5mm 15mm !important;
               box-shadow: none !important;
               background: white !important;
               color: black !important;
               position: static !important;
               box-sizing: border-box !important;
+              font-size: 12px !important;
             }
 
             #print-section * {
@@ -421,23 +422,23 @@ export default function RepairPDF() {
           <div className="max-w-4xl mx-auto">
             <div id="print-section" className="print">
               {/* Header */}
-              <div className="mb-8">
+              <div className="mb-3">
                 {/* Logo */}
-                <div className="flex items-center justify-center mb-6">
+                <div className="flex items-center justify-center mb-3">
                   <div className="text-center">
                     <img 
                       src="/images/abt-logo.png" 
                       alt="Logo อบต.ละหาร" 
-                      className="w-24 h-24 mx-auto mb-2"
+                      className="w-16 h-16 mx-auto mb-1"
                     />
                   </div>
                 </div>
 
-                <h1 className="text-2xl font-bold text-center mb-6">
+                <h1 className="text-xl font-bold text-center mb-3">
                   บันทึกข้อความ
                 </h1>
 
-                <div className="mb-4 normal-line-height">
+                <div className="mb-2 normal-line-height text-sm">
                   <p><span className="font-bold">ส่วนราชการ</span> กองช่าง องค์การบริหารส่วนตำบลละหาร</p>
                   <p><span className="font-bold">ที่</span> {repair.ticketId || "ไม่ระบุ"}</p>
                   <p><span className="font-bold">วันที่</span> {new Date().toLocaleDateString("th-TH", {
@@ -448,56 +449,56 @@ export default function RepairPDF() {
                   <p><span className="font-bold">เรื่อง</span> {repair.reportType === "repair" ? "รายงานผลการดำเนินงานซ่อมแซม" : "รายงานผลการดำเนินงานติดตั้งไฟฟ้าสาธารณะ"}</p>
                 </div>
 
-                <div className="mb-4 normal-line-height">
+                <div className="mb-2 normal-line-height text-sm">
                   <p><span className="font-bold">เรียน</span> นายกองค์การบริหารส่วนตำบลละหาร</p>
                 </div>
 
-                <div className="mb-4 normal-line-height">
+                <div className="mb-2 normal-line-height text-sm">
                   <p><span className="font-bold">สิ่งที่ส่งมาด้วย</span></p>
                   <p>{repair.reportType === "repair" ? "รายงานการดำเนินงานซ่อมแซม" : "รายงานการดำเนินงานติดตั้ง"} จำนวน 1 ชุด</p>
                 </div>
               </div>
               
               {/* Content - แยกตาม reportType */}
-              <div className="mb-6 normal-line-height">
+              <div className="mb-3 normal-line-height text-sm">
                 {repair.reportType === "repair" ? (
                   <>
-                    <p className="mb-4">
+                    <p className="mb-2">
                       ด้วยกองช่าง องค์การบริหารส่วนตำบลละหาร ได้รับการอนุมัติให้ดำเนินการซ่อมแซมทรัพย์สิน 
                       รหัส {repair.assetCode || "ไม่ระบุ"} ({repair.assetName || "ไม่ระบุ"}) 
                       ตามแผนการดำเนินงานประจำปี
                     </p>
                     
-                    <p className="mb-4">
+                    <p className="mb-2">
                       บัดนี้การปฏิบัติงานเสร็จสิ้นเป็นที่เรียบร้อยแล้ว จึงขอเสนอรายงานผลการดำเนินงานซ่อมแซมดังกล่าว 
                       ตามเอกสารดังแนบมาพร้อมนี้
                     </p>
                   </>
                 ) : (
                   <>
-                    <p className="mb-4">
+                    <p className="mb-2">
                       ด้วยกองช่าง องค์การบริหารส่วนตำบลละหาร ได้รับการอนุมัติให้ดำเนินการติดตั้งไฟฟ้าสาธารณะ 
                       รหัส {repair.assetCode || ""} {" "}
                       ณ บริเวณ {repair.location || repair.assetLocation || "ไม่ระบุ"} 
                       ตามแผนการดำเนินงานประจำปี
                     </p>
                     
-                    <p className="mb-4">
+                    <p className="mb-2">
                       บัดนี้การปฏิบัติงานเสร็จสิ้นเป็นที่เรียบร้อยแล้ว จึงขอเสนอรายงานผลการดำเนินงานติดตั้งดังกล่าว 
                       ตามเอกสารดังแนบมาพร้อมนี้
                     </p>
                   </>
                 )}
                 
-                <p className="mb-4">
+                <p className="mb-2">
                   จึงเรียนมาเพื่อโปรดทราบ
                 </p>
               </div>
               
               {/* รายละเอียดโครงการ */}
-              <div className="mb-6">
-                <h3 className="font-bold text-lg mb-4">รายละเอียดโครงการ</h3>
-                <div className="space-y-3">
+              <div className="mb-3">
+                <h3 className="font-bold text-base mb-2">รายละเอียดโครงการ</h3>
+                <div className="space-y-1">
                   <div className="flex">
                     <span className="font-bold w-32">รหัสทรัพย์สิน:</span>
                     <span>{repair.assetCode || "ไม่ระบุ"}</span>
@@ -554,12 +555,7 @@ export default function RepairPDF() {
                     <span className="font-bold w-32">สถานที่:</span>
                     <span>{repair.assetName || repair.location || "ไม่ระบุ"}</span>
                   </div>
-                  <div className="flex">
-                    <span className="font-bold w-32">พิกัด:</span>
-                    <span>{repair.latitude && repair.longitude 
-                      ? `${Number(repair.latitude).toFixed(6)}, ${Number(repair.longitude).toFixed(6)}`
-                      : "ไม่ระบุ"}</span>
-                  </div>
+               
                   <div className="flex">
                     <span className="font-bold w-32">ผลการดำเนินงาน:</span>
                     <span>{repair.notes || "-"}</span>
@@ -568,38 +564,38 @@ export default function RepairPDF() {
               </div>
 
               {/* ลายเซ็นผู้รับผิดชอบโครงการ */}
-              <div className="mb-8 mt-8">
+              <div className="mb-3 mt-3">
                 <div className="flex justify-end">
                   <div className="text-center">
-                    <div className="mb-4">
-                      <p className="text-sm">ลงชื่อ</p>
-                      <div className="border-b border-black border-dashed w-32 mx-auto h-8"></div>
-                      <p className="text-sm mt-2">( นาย สาคร อินดี )</p>
-                      <p className="text-sm">ผู้อำนวยการกองช่าง</p>
+                    <div className="mb-2">
+                      <p className="text-xs">ลงชื่อ</p>
+                      <div className="border-b border-black border-dashed w-32 mx-auto h-6"></div>
+                      <p className="text-xs mt-1">( นาย สาคร อินดี )</p>
+                      <p className="text-xs">ผู้อำนวยการกองช่าง</p>
                     </div>
                   </div>
                 </div>
               </div>
 
               {/* ส่วนการพิจารณา */}
-              <div className="mb-8">
-                <p className="mb-2">ผู้รับผิดชอบโครงการได้เสนอรายงานผลการดำเนินงานโครงการ</p>
-                <p className="mb-4">จึงเรียนมาเพื่อโปรดพิจารณา</p>
+              <div className="mb-3">
+                <p className="mb-1 text-sm">ผู้รับผิดชอบโครงการได้เสนอรายงานผลการดำเนินงานโครงการ</p>
+                <p className="mb-2 text-sm">จึงเรียนมาเพื่อโปรดพิจารณา</p>
                 <div className="checkbox flex items-center">
                   <input type="checkbox" className="mr-2" />
-                  <span>ทราบ</span>
+                  <span className="text-sm">ทราบ</span>
                 </div>
               </div>
 
               {/* ลายเซ็นปลัด */}
-              <div className="mb-8">
+              <div className="mb-3">
                 <div className="flex justify-end">
                   <div className="text-center">
-                    <div className="mb-4">
-                      <p className="text-sm">ลงชื่อ</p>
-                      <div className="border-b border-black border-dashed w-32 mx-auto h-8"></div>
-                      <p className="text-sm mt-2">( นาง มานิสา เติมสายทอง )</p>
-                      <p className="text-sm">ปลัดองค์การบริหารส่วนตำบลละหาร</p>
+                    <div className="mb-2">
+                      <p className="text-xs">ลงชื่อ</p>
+                      <div className="border-b border-black border-dashed w-32 mx-auto h-6"></div>
+                      <p className="text-xs mt-1">( นาง มานิสา เติมสายทอง )</p>
+                      <p className="text-xs">ปลัดองค์การบริหารส่วนตำบลละหาร</p>
                     </div>
                   </div>
                 </div>
