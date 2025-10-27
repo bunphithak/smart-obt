@@ -15,7 +15,8 @@ export default function MapModal({
   initialAddress,
   onConfirm,
   showConfirmButton = true,
-  readonly = false
+  readonly = false,
+  showQuickUseButton = false
 }) {
   const [selectedCoordinates, setSelectedCoordinates] = useState(null);
   const [selectedAddress, setSelectedAddress] = useState('');
@@ -39,6 +40,24 @@ export default function MapModal({
     onClose();
   };
 
+  const handleUseCurrentGPS = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const currentPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+          setSelectedCoordinates(currentPos);
+          setSelectedAddress('ตำแหน่งปัจจุบัน');
+          // ไม่เรียก onConfirm ทันที ให้ผู้ใช้ยืนยันด้วยปุ่ม "ใช้ตำแหน่ง" ก่อน
+        },
+        (error) => {
+          alert('ไม่สามารถเข้าถึงตำแหน่งปัจจุบันได้: ' + error.message);
+        }
+      );
+    } else {
+      alert('เบราว์เซอร์ไม่รองรับการระบุตำแหน่ง');
+    }
+  };
+
   const handleClose = () => {
     setSelectedCoordinates(null);
     setSelectedAddress('');
@@ -60,40 +79,69 @@ export default function MapModal({
           </button>
         </div>
         
-        <div className="flex-1 p-4 overflow-hidden">
+        <div className="flex-1 p-4 overflow-y-auto">
           <MapPicker
+            key={`${selectedCoordinates?.lat || initialLat || 13.7563}-${selectedCoordinates?.lng || initialLng || 100.5018}`}
             initialLat={selectedCoordinates?.lat || initialLat || 13.7563}
             initialLng={selectedCoordinates?.lng || initialLng || 100.5018}
             initialAddress={selectedAddress || initialAddress || ''}
             onLocationSelect={readonly ? undefined : handleLocationSelect}
             readonly={readonly}
+            showButtons={false}
           />
         </div>
 
         {showConfirmButton && (
-          <div className="p-4 border-t border-gray-200">
-            <div className="flex justify-between items-center">
-              <p className="text-sm text-gray-600">
-                {selectedCoordinates 
-                  ? `พิกัด: ${selectedCoordinates.lat.toFixed(6)}, ${selectedCoordinates.lng.toFixed(6)}` 
-                  : 'คลิกบนแผนที่เพื่อเลือกตำแหน่ง'}
-              </p>
+          <div className="p-4 border-t border-gray-200 space-y-3">
+            <p className="text-sm text-gray-600 text-center">
+              {selectedCoordinates 
+                ? `พิกัด: ${selectedCoordinates.lat.toFixed(6)}, ${selectedCoordinates.lng.toFixed(6)}` 
+                : 'คลิกบนแผนที่เพื่อเลือกตำแหน่ง'}
+            </p>
+            {showQuickUseButton ? (
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleUseCurrentGPS}
+                  className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 whitespace-nowrap"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  ใช้ตำแหน่งปัจจุบัน
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirm}
+                  disabled={!selectedCoordinates}
+                  className="flex-1 px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-2 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  ยืนยัน
+                </button>
+              </div>
+            ) : (
               <div className="flex gap-3">
                 <button
+                  type="button"
                   onClick={handleClose}
                   className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
                 >
                   ยกเลิก
                 </button>
                 <button
+                  type="button"
                   onClick={handleConfirm}
                   disabled={!selectedCoordinates}
                   className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  ใช้ตำแหน่ง
+                  ตกลง
                 </button>
               </div>
-            </div>
+            )}
           </div>
         )}
       </div>

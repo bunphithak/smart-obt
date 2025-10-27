@@ -585,6 +585,7 @@ export default function CreateRepairModal({ isOpen, onClose, reportId, onSuccess
           setCoordinates({ lat, lng });
           setLocation(address || '');
         }}
+        showQuickUseButton={false}
       />
     </>
   );

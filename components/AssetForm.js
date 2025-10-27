@@ -30,7 +30,8 @@ export default function AssetForm({ asset, villages, categories = [], onSubmit, 
         ...asset,
         purchaseDate: asset.purchaseDate 
           ? new Date(asset.purchaseDate).toISOString().split('T')[0] 
-          : ''
+          : '',
+        category: asset.categoryId || asset.category || '' // Map categoryId to category field
       };
       setFormData(formattedAsset);
       
@@ -115,6 +116,12 @@ export default function AssetForm({ asset, villages, categories = [], onSubmit, 
   const handleSubmit = async (e) => {
     e.preventDefault();
     
+    // Validate required fields
+    if (!formData.name || !formData.category || !formData.code || !formData.villageId) {
+      alert('กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน');
+      return;
+    }
+    
     // Upload images first if there are new files
     if (images.some(img => img.file)) {
       setUploading(true);
@@ -174,7 +181,7 @@ export default function AssetForm({ asset, villages, categories = [], onSubmit, 
           value={formData.name}
           onChange={handleChange}
           required
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full px-3 sm:px-4 py-2 sm:py-2.5 text-sm sm:text-base border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           placeholder="เช่น เสาไฟส่องสว่าง"
         />
       </div>
@@ -188,7 +195,7 @@ export default function AssetForm({ asset, villages, categories = [], onSubmit, 
           value={formData.category}
           onChange={handleChange}
           required
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full px-3 sm:px-4 py-2 sm:py-2.5 text-sm sm:text-base border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           <option value="">เลือกหมวดหมู่</option>
           {categories.filter(cat => cat.isActive).map(category => (
@@ -210,7 +217,7 @@ export default function AssetForm({ asset, villages, categories = [], onSubmit, 
           onChange={handleChange}
           required
           disabled={true}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+          className="w-full px-3 sm:px-4 py-2 sm:py-2.5 text-sm sm:text-base border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
           placeholder={generatingCode ? "กำลังสร้างรหัส..." : "รหัสทรัพย์สิน"}
         />
       </div>
@@ -224,7 +231,7 @@ export default function AssetForm({ asset, villages, categories = [], onSubmit, 
           value={formData.villageId}
           onChange={handleChange}
           required
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full px-3 sm:px-4 py-2 sm:py-2.5 text-sm sm:text-base border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           <option value="">เลือกหมู่บ้าน</option>
           {villages && villages.map(village => (
@@ -243,7 +250,7 @@ export default function AssetForm({ asset, villages, categories = [], onSubmit, 
           name="status"
           value={formData.status}
           onChange={handleChange}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full px-3 sm:px-4 py-2 sm:py-2.5 text-sm sm:text-base border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           <option value={ASSET_STATUS.AVAILABLE}>{ASSET_STATUS_LABELS[ASSET_STATUS.AVAILABLE]}</option>
           <option value={ASSET_STATUS.DAMAGED}>{ASSET_STATUS_LABELS[ASSET_STATUS.DAMAGED]}</option>
@@ -252,8 +259,8 @@ export default function AssetForm({ asset, villages, categories = [], onSubmit, 
         </select>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+        <div className="min-w-0 overflow-hidden">
           <label className="block text-sm font-medium text-gray-700 mb-1">
             มูลค่า (บาท)
           </label>
@@ -264,21 +271,22 @@ export default function AssetForm({ asset, villages, categories = [], onSubmit, 
             onChange={handleChange}
             min="0"
             step="0.01"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 sm:px-4 py-2 sm:py-2.5 text-sm sm:text-base border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             placeholder="เช่น 2500"
           />
         </div>
 
-        <div>
+        <div className="min-w-0 overflow-hidden">
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            วันที่ซื้อ
+            วันที่ซื้อ <span className="text-xs text-gray-500 font-normal">(คลิกเพื่อเลือกวันที่)</span>
           </label>
           <input
             type="date"
             name="purchaseDate"
             value={formData.purchaseDate}
             onChange={handleChange}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            style={{ maxWidth: '100%' }}
+            className="w-full min-w-0 px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
       </div>
@@ -292,7 +300,7 @@ export default function AssetForm({ asset, villages, categories = [], onSubmit, 
           name="locationName"
           value={formData.locationName}
           onChange={handleChange}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full px-3 sm:px-4 py-2 sm:py-2.5 text-sm sm:text-base border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           placeholder="เช่น สำนักงานใหญ่, ห้องประชุม, ห้อง 301"
         />
       </div>
@@ -301,21 +309,21 @@ export default function AssetForm({ asset, villages, categories = [], onSubmit, 
         <label className="block text-sm font-medium text-gray-700 mb-1">
           ที่อยู่ / เลือกตำแหน่งบนแผนที่
         </label>
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2">
           <input
             type="text"
             name="locationAddress"
             value={formData.locationAddress}
             onChange={handleChange}
-            className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="flex-1 px-3 sm:px-4 py-2 sm:py-2.5 text-sm sm:text-base border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             placeholder="ระบุที่อยู่ หรือคลิก 'ปักหมุด' เพื่อเลือกจากแผนที่"
           />
           <button
             type="button"
             onClick={() => setShowMap(true)}
-            className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 flex items-center gap-2 transition-colors"
+            className="px-3 sm:px-4 py-2 sm:py-2.5 bg-green-600 text-white rounded-md hover:bg-green-700 flex items-center justify-center gap-2 transition-colors text-sm sm:text-base whitespace-nowrap"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
@@ -341,7 +349,7 @@ export default function AssetForm({ asset, villages, categories = [], onSubmit, 
           value={formData.description}
           onChange={handleChange}
           rows="3"
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full px-3 sm:px-4 py-2 sm:py-2.5 text-sm sm:text-base border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
           placeholder="รายละเอียดเพิ่มเติม..."
         />
       </div>
@@ -355,7 +363,7 @@ export default function AssetForm({ asset, villages, categories = [], onSubmit, 
             <svg className="w-5 h-5 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
             </svg>
-            <span className="text-gray-600">คลิกเพื่ออัปโหลดรูปภาพ</span>
+            <span className="text-sm sm:text-base text-gray-600">คลิกเพื่ออัปโหลดรูปภาพ</span>
             <input
               type="file"
               accept="image/*"
@@ -366,21 +374,21 @@ export default function AssetForm({ asset, villages, categories = [], onSubmit, 
           </label>
           
           {images.length > 0 && (
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
               {images.map((image, index) => (
                 <div key={index} className="relative">
                   <img
                     src={image.preview}
                     alt={`Upload ${index + 1}`}
-                    className="w-full h-32 object-cover rounded-lg border border-gray-300 cursor-pointer hover:opacity-80 transition-opacity"
+                    className="w-full h-24 sm:h-32 object-cover rounded-lg border border-gray-300 cursor-pointer hover:opacity-80 transition-opacity"
                     onClick={() => openImageModal(image)}
                   />
                   <button
                     type="button"
                     onClick={() => removeImage(index)}
-                    className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors"
+                    className="absolute -top-1 -right-1 sm:-top-2 sm:-right-2 w-5 h-5 sm:w-6 sm:h-6 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors"
                   >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                     </svg>
                   </button>
@@ -391,18 +399,18 @@ export default function AssetForm({ asset, villages, categories = [], onSubmit, 
         </div>
       </div>
 
-      <div className="flex justify-end space-x-3 pt-4">
+      <div className="flex flex-col sm:flex-row justify-end gap-2 sm:gap-3 pt-4">
         <button
           type="button"
           onClick={onCancel}
-          className="px-6 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400 transition-colors"
+          className="w-full sm:w-auto px-4 sm:px-6 py-2 text-sm sm:text-base bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400 transition-colors"
         >
           ยกเลิก
         </button>
         <button
           type="submit"
           disabled={uploading}
-          className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full sm:w-auto px-4 sm:px-6 py-2 text-sm sm:text-base bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {uploading ? 'กำลังอัปโหลด...' : (asset ? 'บันทึกการแก้ไข' : 'เพิ่มทรัพย์สิน')}
         </button>
@@ -416,6 +424,7 @@ export default function AssetForm({ asset, villages, categories = [], onSubmit, 
         initialLng={formData.longitude}
         initialAddress={formData.locationAddress}
         onConfirm={handleLocationSelect}
+        showQuickUseButton={true}
       />
 
       {/* Image Modal */}

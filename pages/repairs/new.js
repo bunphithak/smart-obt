@@ -666,6 +666,7 @@ export default function NewRepairPage() {
           initialLng={formData.longitude}
           initialAddress={formData.locationAddress}
           onConfirm={handleLocationSelect}
+          showQuickUseButton={false}
         />
       </>
     );

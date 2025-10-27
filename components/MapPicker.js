@@ -71,7 +71,7 @@ function MapUpdater({ center, zoom }) {
   return null;
 }
 
-export default function MapPicker({ initialLat, initialLng, onLocationSelect, readonly = false }) {
+export default function MapPicker({ initialLat, initialLng, onLocationSelect, readonly = false, showButtons = true }) {
   const [position, setPosition] = useState([initialLat || 13.7563, initialLng || 100.5018]);
   const [mounted, setMounted] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -85,6 +85,13 @@ export default function MapPicker({ initialLat, initialLng, onLocationSelect, re
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Update position when initial coordinates change
+  useEffect(() => {
+    if (initialLat && initialLng) {
+      setPosition([initialLat, initialLng]);
+    }
+  }, [initialLat, initialLng]);
 
   // Search location using Nominatim (OpenStreetMap)
   const handleSearch = async (query) => {
@@ -198,7 +205,7 @@ export default function MapPicker({ initialLat, initialLng, onLocationSelect, re
         </p>
         {position && (
           <p className="text-sm text-blue-700 mt-1">
-            📍 พิกัดที่เลือก: <strong>{position[0].toFixed(6)}, {position[1].toFixed(6)}</strong>
+            📍 พิกัดที่เลือก: <strong>{Number(position[0]).toFixed(6)}, {Number(position[1]).toFixed(6)}</strong>
           </p>
         )}
       </div>
@@ -286,8 +293,8 @@ export default function MapPicker({ initialLat, initialLng, onLocationSelect, re
         </MapContainer>
       </div>
 
-      <div className="mt-4">
-        <div className="flex gap-2">
+      {showButtons && (
+        <div className="mt-4 flex flex-col sm:flex-row gap-2">
           <button
             type="button"
             onClick={() => {
@@ -296,7 +303,7 @@ export default function MapPicker({ initialLat, initialLng, onLocationSelect, re
                 handlePositionChange(position);
               }
             }}
-            className="flex-1 px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center justify-center gap-2 transition-colors shadow-md"
+            className="flex-1 px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center justify-center gap-2 transition-colors shadow-md whitespace-nowrap"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -306,7 +313,7 @@ export default function MapPicker({ initialLat, initialLng, onLocationSelect, re
           <button
             type="button"
             onClick={handleCurrentLocation}
-            className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2 transition-colors shadow-md"
+            className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2 transition-colors shadow-md whitespace-nowrap"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
@@ -315,7 +322,8 @@ export default function MapPicker({ initialLat, initialLng, onLocationSelect, re
             ใช้ตำแหน่งปัจจุบัน
           </button>
         </div>
-      </div>
+      )}
+
 
       {/* Alert Modal */}
       <AlertModal

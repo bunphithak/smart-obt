@@ -275,6 +275,8 @@ export default function AssetsPage() {
             setEditingAsset(null);
             fetchData();
           } else {
+            console.error('API Error:', result);
+            console.error('Submitted data:', data);
             showAlert('error', 'เกิดข้อผิดพลาด', 'เกิดข้อผิดพลาด: ' + result.error);
           }
         } catch (error) {
@@ -972,19 +974,19 @@ export default function AssetsPage() {
       </div>
 
       {/* Filters */}
-      <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6 mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-5 md:p-6 mb-6 dark:border-gray-800 dark:bg-white/[0.03]">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
           <input
             type="text"
             placeholder="🔍 ค้นหา (ชื่อ หรือ รหัส)"
             value={filter.search}
             onChange={(e) => handleFilterChange({ ...filter, search: e.target.value })}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 sm:px-4 py-2 sm:py-2.5 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <select
             value={filter.category}
             onChange={(e) => handleFilterChange({ ...filter, category: e.target.value })}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 sm:px-4 py-2 sm:py-2.5 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="">ทุกหมวดหมู่</option>
                    {categories.filter(cat => cat.isActive).map(category => (
@@ -996,7 +998,7 @@ export default function AssetsPage() {
           <select
             value={filter.villageId}
             onChange={(e) => handleFilterChange({ ...filter, villageId: e.target.value })}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 sm:px-4 py-2 sm:py-2.5 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="">ทุกหมู่บ้าน</option>
             {villages.map(v => (
@@ -1038,37 +1040,37 @@ export default function AssetsPage() {
           <table className="min-w-full">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">รหัส</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ชื่อทรัพย์สิน</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">หมวดหมู่</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">หมู่บ้าน</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">สถานะ</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">QR Code</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">จัดการ</th>
+                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">รหัส</th>
+                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ชื่อทรัพย์สิน</th>
+                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden sm:table-cell">หมวดหมู่</th>
+                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden md:table-cell">หมู่บ้าน</th>
+                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">สถานะ</th>
+                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">QR Code</th>
+                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">จัดการ</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
               {currentAssets.map(asset => (
                 <tr key={asset.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 text-sm font-mono">{asset.code}</td>
-                  <td className="px-6 py-4 text-sm">{asset.name}</td>
-                  <td className="px-6 py-4 text-sm">{asset.category}</td>
-                  <td className="px-6 py-4 text-sm">
+                  <td className="px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-mono">{asset.code}</td>
+                  <td className="px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm">{asset.name}</td>
+                  <td className="px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm hidden sm:table-cell">{asset.category}</td>
+                  <td className="px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm hidden md:table-cell">
                     {villages.find(v => v.id === asset.villageId)?.name || '-'}
                   </td>
-                  <td className="px-6 py-4 text-sm">
+                  <td className="px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm">
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(asset.status)}`}>
                       {getStatusLabel(asset.status)}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-sm">
-                    <div className="flex space-x-2">
+                  <td className="px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm">
+                    <div className="flex space-x-1 sm:space-x-2">
                       <button
                         onClick={() => showQRCode(asset)}
                         className="text-purple-600 hover:text-purple-800 p-1 rounded hover:bg-purple-50 transition-colors"
                         title="ดู QR Code"
                       >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                         </svg>
@@ -1078,7 +1080,7 @@ export default function AssetsPage() {
                         className="text-blue-600 hover:text-blue-800 p-1 rounded hover:bg-blue-50 transition-colors"
                         title="ดาวน์โหลด QR Code"
                       >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                         </svg>
                       </button>
@@ -1087,32 +1089,32 @@ export default function AssetsPage() {
                         className="text-green-600 hover:text-green-800 p-1 rounded hover:bg-green-50 transition-colors"
                         title="พิมพ์ QR Code"
                       >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
                       </svg>
                     </button>
                     </div>
                   </td>
-                  <td className="px-6 py-4 text-sm">
-                    <div className="flex space-x-2">
+                  <td className="px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm">
+                    <div className="flex space-x-1 sm:space-x-2">
                       <button
                         onClick={() => {
                           setEditingAsset(asset);
                           setShowForm(true);
                         }}
-                        className="text-green-600 hover:text-green-800"
+                        className="text-green-600 hover:text-green-800 p-1"
                         title="แก้ไข"
                       >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                         </svg>
                       </button>
                       <button
                         onClick={() => handleDeleteClick(asset)}
-                        className="text-red-600 hover:text-red-800"
+                        className="text-red-600 hover:text-red-800 p-1"
                         title="ลบ"
                       >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                         </svg>
                       </button>
@@ -1217,10 +1219,10 @@ export default function AssetsPage() {
 
       {/* Form Modal */}
       {showForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-2 sm:p-4 z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <h2 className="text-2xl font-bold mb-4">
+            <div className="p-4 sm:p-6">
+              <h2 className="text-xl sm:text-2xl font-bold mb-4">
                 {editingAsset ? 'แก้ไขทรัพย์สิน' : 'เพิ่มทรัพย์สินใหม่'}
               </h2>
               <AssetForm

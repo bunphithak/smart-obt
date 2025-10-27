@@ -368,19 +368,19 @@ export default function RepairForm() {
           </div>
         </header>
 
-        <div className="w-full px-4 py-8">
-          <div className="bg-white rounded-2xl shadow-xl p-8 max-w-4xl mx-auto">
-            <div className="text-center mb-8">
-              <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-10 h-10 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="w-full px-4 py-4 sm:py-8">
+          <div className="bg-white rounded-2xl shadow-xl p-4 sm:p-8 max-w-4xl mx-auto">
+            <div className="text-center mb-6 sm:mb-8">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
+                <svg className="w-8 h-8 sm:w-10 sm:h-10 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
               </div>
-              <h1 className="text-3xl font-bold text-gray-800 mb-2">แจ้งซ่อมทรัพย์สิน</h1>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-2">แจ้งซ่อมทรัพย์สิน</h1>
               {villageName && (
-                <p className="text-lg font-semibold text-red-600 mb-2">{villageName}</p>
+                <p className="text-base sm:text-lg font-semibold text-red-600 mb-2">{villageName}</p>
               )}
-              <p className="text-gray-600">กรุณากรอกรายละเอียดการแจ้งซ่อม</p>
+              <p className="text-sm sm:text-base text-gray-600">กรุณากรอกรายละเอียดการแจ้งซ่อม</p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-6">
@@ -392,8 +392,8 @@ export default function RepairForm() {
                   type="text"
                   value={assetCode}
                   onChange={(e) => setAssetCode(e.target.value)}
-                  placeholder="เช่น AST000001 (สามารถเว้นว่างได้หากไม่ทราบ)"
-                  className="w-full px-4 py-3 text-center text-lg font-mono border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                  placeholder="เช่น AST000001"
+                  className="w-full px-4 py-3 text-center text-base sm:text-lg font-mono border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
                 />
                 <p className="text-xs text-gray-500 mt-1">
                   ถ้ามี QR Code สามารถสแกนหรือกรอกได้
@@ -408,7 +408,7 @@ export default function RepairForm() {
                   value={selectedVillageId}
                   onChange={handleVillageChange}
                   required
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                  className="w-full px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
                 >
                   <option value="">เลือกหมู่บ้าน</option>
                   {villages.map((village) => (
@@ -432,7 +432,7 @@ export default function RepairForm() {
                   value={selectedCategoryId}
                   onChange={handleCategoryChange}
                   required
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                  className="w-full px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
                 >
                   <option value="">เลือกหมวดหมู่</option>
                   {categories.map((category) => (
@@ -458,7 +458,7 @@ export default function RepairForm() {
                   onChange={handleChange}
                   required
                   disabled={!selectedCategoryId}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  className="w-full px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
                 >
                   <option value="">
                     {selectedCategoryId ? 'กรุณาเลือก' : 'กรุณาเลือกหมวดหมู่ก่อน'}
@@ -478,7 +478,7 @@ export default function RepairForm() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  สถานที่ที่เกิดปัญหา *
+                  สถานที่ที่เกิดปัญหา <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -487,7 +487,7 @@ export default function RepairForm() {
                   onChange={handleChange}
                   required
                   placeholder="ระบุสถานที่ที่เกิดปัญหา"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                  className="w-full px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
                 />
               </div>
 
@@ -524,7 +524,7 @@ export default function RepairForm() {
                   required
                   rows={4}
                   placeholder="อธิบายปัญหาที่พบ..."
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                  className="w-full px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
                 />
               </div>
 
@@ -540,7 +540,7 @@ export default function RepairForm() {
                     onChange={handleChange}
                     required
                     placeholder="ชื่อ-นามสกุล"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                    className="w-full px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
                   />
                 </div>
                 <div>
@@ -557,7 +557,7 @@ export default function RepairForm() {
                     placeholder="08X-XXX-XXXX"
                     maxLength="12"
                     title="กรุณากรอกเบอร์โทรศัพท์ 10 หลัก เช่น 081-234-5678"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                    className="w-full px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
                   />
                   <p className="text-xs text-gray-500 mt-1">
                     รูปแบบ: 0XX-XXX-XXXX (10 หลัก)
@@ -629,7 +629,7 @@ export default function RepairForm() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full bg-gradient-to-r from-red-500 to-red-600 text-white py-3 px-6 rounded-lg font-semibold hover:from-red-600 hover:to-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-105"
+                className="w-full bg-gradient-to-r from-red-500 to-red-600 text-white py-3 sm:py-4 px-6 rounded-lg font-semibold hover:from-red-600 hover:to-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-105 text-base sm:text-lg"
               >
                 {submitting ? 'กำลังส่ง...' : 'ส่งรายงาน'}
               </button>
