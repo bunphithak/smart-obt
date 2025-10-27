@@ -459,10 +459,10 @@ export default function PDFReport() {
               </div>
               <div className="mb-8">
                 <p className="font-bold mb-4">
-                  เนื่องจากได้เกิดการชำรุดโดยมีรายละเอียด ดังนี้
+                  เนื่องจากได้เกิดการชำรุดกับโดยมีรายละเอียด ดังนี้
                 </p>
                 <div className="border-b border-black border-dashed px-2 ml-2 w-full">
-                  {report.description || "-"}
+                {report.assetName || ""}  {report.description || "-"}
                 </div>
               </div>
               <div className="flex justify-end">
