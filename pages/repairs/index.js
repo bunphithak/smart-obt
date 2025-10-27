@@ -110,7 +110,7 @@ export default function RepairsPage() {
             ติดตามและจัดการงานซ่อมบำรุงทั้งหมด
           </p>
         </div>
-        <button
+        {/* <button
           onClick={() => setShowCreateRepairModal(true)}
           className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center space-x-2"
         >
@@ -118,7 +118,7 @@ export default function RepairsPage() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
           </svg>
           <span>สร้างงานซ่อม</span>
-        </button>
+        </button> */}
       </div>
 
       {/* Filters */}

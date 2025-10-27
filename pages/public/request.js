@@ -91,19 +91,19 @@ export default function RequestPage() {
               </div>
 
               <form onSubmit={handleTrackSubmit} className="max-w-md mx-auto">
-                <div className="flex gap-3">
+                <div className="flex flex-col sm:flex-row gap-3">
                   <input
                     type="text"
                     value={trackingId}
                     onChange={(e) => setTrackingId(e.target.value)}
-                    placeholder="กรอกรหัสติดตาม (เช่น RP123456 หรือ RQ123456)"
+                    placeholder="กรอกรหัสติดตาม..."
                     required
-                    className="flex-1 px-4 py-3 text-center text-lg font-mono border-2 border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="flex-1 px-4 py-3 text-center sm:text-left text-base sm:text-lg font-mono border-2 border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
                   <button
                     type="submit"
                     disabled={isChecking}
-                    className="px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg font-semibold hover:from-blue-600 hover:to-blue-700 transition-all transform hover:scale-105 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg font-semibold hover:from-blue-600 hover:to-blue-700 transition-all transform hover:scale-105 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
                   >
                     {isChecking ? (
                       <>

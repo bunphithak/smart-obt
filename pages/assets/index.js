@@ -958,7 +958,7 @@ export default function AssetsPage() {
                 พิมพ์ QR Code ทั้งหมด ({filteredAssets.length})
               </button>
             )} */}
-            <button
+            {/* <button
               onClick={openVillageSelectModal}
               className="inline-flex items-center px-5 py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors shadow-sm"
             >
@@ -966,7 +966,7 @@ export default function AssetsPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
               สร้าง QR Code ทั่วไป
-            </button>
+            </button> */}
           </div>
         </div>
       </div>

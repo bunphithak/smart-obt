@@ -518,7 +518,15 @@ export default function VillagesPage() {
                 </button>
               </div>
               <p className="text-gray-600 mt-1">
-                รหัสหมู่บ้าน: {selectedVillage?.code} | ที่อยู่: {selectedVillage?.address}
+                รหัสหมู่บ้าน: {selectedVillage?.villageCode || selectedVillage?.code || '-'} | 
+                {selectedVillage?.location ? (
+                  <>
+                    ที่อยู่: ตำบล{selectedVillage.location.subdistrict || '-'} อำเภอ{selectedVillage.location.district || '-'} จังหวัด{selectedVillage.location.province || '-'}
+                    {selectedVillage.location.postalCode && ` ${selectedVillage.location.postalCode}`}
+                  </>
+                ) : (
+                  selectedVillage?.description || '-'
+                )}
               </p>
             </div>
             
@@ -539,12 +547,16 @@ export default function VillagesPage() {
                           <p className="text-sm text-gray-600">รหัส: {asset.code}</p>
                         </div>
                         <span className={`px-2 py-1 text-xs rounded-full ${
-                          asset.status === 'ใช้งานได้' ? 'bg-green-100 text-green-800' :
-                          asset.status === 'ชำรุด' ? 'bg-red-100 text-red-800' :
-                          asset.status === 'ซ่อมแซม' ? 'bg-yellow-100 text-yellow-800' :
+                          asset.status === 'AVAILABLE' || asset.status === 'ใช้งานได้' ? 'bg-green-100 text-green-800' :
+                          asset.status === 'DAMAGED' || asset.status === 'ชำรุด' ? 'bg-red-100 text-red-800' :
+                          asset.status === 'DETERIORATED' || asset.status === 'เสื่อมสภาพ' ? 'bg-yellow-100 text-yellow-800' :
                           'bg-gray-100 text-gray-800'
                         }`}>
-                          {asset.status}
+                          {asset.status === 'AVAILABLE' ? 'ใช้งานได้' :
+                           asset.status === 'DAMAGED' ? 'ชำรุด' :
+                           asset.status === 'DETERIORATED' ? 'เสื่อมสภาพ' :
+                           asset.status === 'LOST' ? 'สูญหาย' :
+                           asset.status}
                         </span>
                       </div>
                       
@@ -570,7 +582,7 @@ export default function VillagesPage() {
                         {asset.latitude && asset.longitude && (
                           <div className="flex justify-between">
                             <span className="text-gray-500">พิกัด:</span>
-                            <span className="text-gray-900 text-xs">{asset.latitude.toFixed(4)}, {asset.longitude.toFixed(4)}</span>
+                            <span className="text-gray-900 text-xs">{Number(asset.latitude).toFixed(4)}, {Number(asset.longitude).toFixed(4)}</span>
                           </div>
                         )}
                       </div>

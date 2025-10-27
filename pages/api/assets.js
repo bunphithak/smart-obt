@@ -414,12 +414,12 @@ export default async function handler(req, res) {
 
         // Check if asset has reports or repairs
         const reportsCheck = await pool.query(
-          'SELECT COUNT(*) as count FROM reports WHERE asset_id = $1',
+          'SELECT COUNT(*) as count FROM reports WHERE asset_code = (SELECT code FROM assets WHERE id = $1)',
           [deleteId]
         );
 
         const repairsCheck = await pool.query(
-          'SELECT COUNT(*) as count FROM repairs WHERE asset_id = $1',
+          'SELECT COUNT(*) as count FROM repairs WHERE asset_code = (SELECT code FROM assets WHERE id = $1)',
           [deleteId]
         );
 
