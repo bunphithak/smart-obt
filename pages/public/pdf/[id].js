@@ -296,6 +296,14 @@ export default function PDFReport() {
               justify-content: flex-end !important;
             }
 
+            #print-section .justify-center {
+              justify-content: center !important;
+            }
+
+            #print-section .items-center {
+              align-items: center !important;
+            }
+
             #print-section .text-center {
               text-align: center !important;
             }
@@ -465,20 +473,40 @@ export default function PDFReport() {
                 {report.assetName || ""}  {report.description || "-"}
                 </div>
               </div>
-              <div className="flex justify-end">
-                <div className="text-center">
-                  <p className="text-sm">
-                    (ลงชื่อ)
-                    <span className="border-b border-black border-dashed px-2">
+              <div className="mb-8 mt-4">
+                <div className="flex justify-between items-start">
+                  {/* ผู้แจ้ง - ซ้าย */}
+                  <div className="text-center">
+                    <p className="text-sm">
+                      (ลงชื่อ)
+                      <span className="border-b border-black border-dashed px-2" >
+                        {" "}
+                        {report.reportedBy}
+                      </span>{" "}
+                      ผู้แจ้ง
+                    </p>
+                    <p className="text-sm mt-1">
                       {" "}
-                      {report.reportedBy}
-                    </span>{" "}
-                    ผู้แจ้ง
-                  </p>
-                  <p className="text-sm mt-1">
-                    {" "}
-                    ( {report.reportedBy || "ไม่ระบุ"} )
-                  </p>
+                      ( {report.reportedBy || "ไม่ระบุ"} )
+                    </p>
+                  </div>
+                  {/* ผู้รับคำร้อง - ขวา */}
+                  <div className="text-center">
+                    <div className="flex items-center justify-center gap-2 mb-2">
+                      <p className="text-sm">ลงชื่อ</p>
+                      <div className="border-b border-black border-dashed h-6" style={{ width: '120px' }}></div>
+                      <p className="text-sm">ผู้รับคำร้อง</p>
+                    </div>
+                    <div className="flex items-center justify-center mb-2">
+                      <p className="text-sm">(</p>
+                      <div className="border-b border-black border-dashed flex-1 h-6"></div>
+                      <p className="text-sm">)</p>
+                    </div>
+                    <div className="flex items-center justify-center gap-2">
+                      <p className="text-sm">ตำแหน่ง</p>
+                      <div className="border-b border-black border-dashed flex-1 h-6"></div>
+                    </div>
+                  </div>
                 </div>
               </div>
               <div className="mb-8 mt-4">

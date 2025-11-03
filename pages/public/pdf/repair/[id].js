@@ -563,9 +563,19 @@ export default function RepairPDF() {
                 </div>
               </div>
 
-              {/* ลายเซ็นผู้รับผิดชอบโครงการ */}
+              {/* ลายเซ็น */}
               <div className="mb-3 mt-3">
-                <div className="flex justify-end">
+                <div className="flex justify-between items-start">
+                  {/* ลายเซ็นนายช่าง */}
+                  <div className="text-center">
+                    <div className="mb-2">
+                      <p className="text-xs">ลงชื่อ</p>
+                      <div className="border-b border-black border-dashed w-32 mx-auto h-6"></div>
+                      <p className="text-xs mt-1">( {repair.technicianName || "นายช่างผู้รับผิดชอบ"} )</p>
+                      <p className="text-xs">ช่างผู้รับผิดชอบ</p>
+                    </div>
+                  </div>
+                  {/* ลายเซ็นผู้รับผิดชอบโครงการ */}
                   <div className="text-center">
                     <div className="mb-2">
                       <p className="text-xs">ลงชื่อ</p>
